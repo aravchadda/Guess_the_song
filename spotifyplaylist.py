@@ -6,7 +6,7 @@ import pandas as pd
 def get_playlist_tracks(sp, playlist_id_or_url):
     """
     Extract all tracks from a Spotify playlist (supports URL or ID).
-    Returns a DataFrame with columns: Song Name, Artist(s)
+    Returns a DataFrame with columns: Song Name, Artist(s), Release Year
     """
     # Normalize playlist ID from URL if needed
     playlist_id = playlist_id_or_url
@@ -34,10 +34,16 @@ def get_playlist_tracks(sp, playlist_id_or_url):
 
             track_name = track.get('name')
             artists = ', '.join([artist.get('name') for artist in track.get('artists', [])])
+            
+            # Extract release year safely
+            album = track.get('album', {})
+            release_date = album.get('release_date', '')
+            release_year = release_date[:4] if release_date else 'Unknown'
 
             tracks_data.append({
-                'Song Name': track_name,
-                'Artist(s)': artists
+                'Song_Name': track_name,
+                'Artists': artists,
+                'Release': release_year
             })
 
         # Next page
@@ -54,8 +60,8 @@ def get_playlist_tracks(sp, playlist_id_or_url):
 def fetch_multiple_playlists(playlists, client_id, client_secret, output_file='spotify_playlist_tracks.csv'):
     """
     Fetch tracks for multiple playlists and append/update output CSV.
-    Keeps only 'Song Name' and 'Artist(s)' columns.
-    Removes duplicates based only on those two columns.
+    Keeps 'Song Name', 'Artist(s)', and 'Release Year' columns.
+    Removes duplicates based on Song Name + Artist(s).
     """
     client_credentials_manager = SpotifyClientCredentials(
         client_id=client_id,
@@ -78,21 +84,25 @@ def fetch_multiple_playlists(playlists, client_id, client_secret, output_file='s
 
     new_df = pd.concat(dfs, ignore_index=True)
 
-    # If file exists, merge with it
+    # Merge with existing file if present
     if os.path.exists(output_file):
         try:
             existing_df = pd.read_csv(output_file)
             combined = pd.concat([existing_df, new_df], ignore_index=True)
-            combined = combined.drop_duplicates(subset=['Song Name', 'Artist(s)'], keep='first')
+            
+            # Intelligently merge duplicates: keep all columns, fill missing values
+            # Group by Song_Name and Artists, then take first non-null value for each column
+            combined = combined.groupby(['Song_Name', 'Artists'], as_index=False).first()
+            
             combined.to_csv(output_file, index=False)
             print(f"Updated file saved to {output_file} ({len(combined)} total unique tracks).")
         except Exception as e:
             print(f"Error reading existing CSV ({e}). Writing new file instead.")
-            new_df.drop_duplicates(subset=['Song Name', 'Artist(s)']).to_csv(output_file, index=False)
+            new_df.drop_duplicates(subset=['Song_Name', 'Artists']).to_csv(output_file, index=False)
             print(f"Wrote {len(new_df)} unique tracks to {output_file}.")
     else:
         # Write fresh
-        new_df.drop_duplicates(subset=['Song Name', 'Artist(s)']).to_csv(output_file, index=False)
+        new_df.drop_duplicates(subset=['Song_Name', 'Artists']).to_csv(output_file, index=False)
         print(f"Wrote {len(new_df)} unique tracks to new file {output_file}.")
 
 

@@ -45,6 +45,11 @@ for idx, row in df.iterrows():
         # Download the audio segment (20s to 45s)
         output_path = os.path.join(OUTPUT_FOLDER, f'{safe_title}.mp3')
         
+        # Check if file already exists
+        if os.path.exists(output_path):
+            print(f"⊙ Skipped (already exists): {safe_title} | Views: {view_count:,}")
+            continue
+        
         download_opts = {
             'format': 'bestaudio/best',
             'download_ranges': download_range_func(None, [(START_TIME, END_TIME)]),
