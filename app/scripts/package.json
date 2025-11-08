@@ -1,0 +1,20 @@
+{
+  "name": "guess-the-song-scripts",
+  "version": "1.0.0",
+  "description": "Preprocessing and seeding scripts",
+  "scripts": {
+    "preprocess": "ts-node preprocess.ts",
+    "seed": "ts-node seed.ts"
+  },
+  "dependencies": {
+    "csv-parser": "^3.0.0",
+    "mongoose": "^8.0.3",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
+

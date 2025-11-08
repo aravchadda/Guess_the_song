@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 import time
 
 # Your existing API key
-YOUTUBE_API_KEY = 'AIzaSyCH1OhX_bo1H55wpGqr5suqT9SeNgiSC44'
+YOUTUBE_API_KEY = 'AIzaSyDRcsUa8vFdemu9DSzr4sPGHSimpK5ePiY'
 
 def search_youtube_by_title(song_title, artist_name):
     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
