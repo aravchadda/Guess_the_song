@@ -5,11 +5,11 @@
  * Usage: ts-node preprocess.ts
  * 
  * Expects:
- * - CSV at: ../../getting_the_data/spotify_playlist_tracks.csv
- * - Stems at: ../../separated/<Song_Name>/{drums,guitar,bass,piano,vocals}.mp3
+ * - CSV at: ../backend/spotify_playlist_tracks.csv
+ * - Stems at: ../backend/separated/<Song_Name>/{drums,guitar,bass,piano,vocals,other}.mp3
  * 
  * Generates:
- * - ../../preprocessed/<Song_Name>/{level1,level2,level3}.mp3
+ * - ../backend/preprocessed/<Song_Name>/{level1,level2,level3}.mp3
  * - ./preprocessed_songs.json (metadata for seeding)
  */
 
@@ -48,49 +48,28 @@ const PREPROCESSED_PATH = path.join(PROJECT_ROOT, 'backend/preprocessed');
 const OUTPUT_JSON = path.join(__dirname, 'preprocessed_songs.json');
 
 /**
- * Sanitize song name for filesystem use (matches YouTube video title format)
+ * Sanitize song name for filesystem use (only replace truly invalid characters)
  */
 function sanitizeSongName(songName: string): string {
+  // Only replace characters that are invalid in Windows filesystem
   return songName
     .replace(/[<>:"|?*]/g, '_') // Replace invalid chars
-    .replace(/[^\w\s-]/g, '') // Remove non-alphanumeric except spaces, hyphens, underscores
-    .replace(/\s+/g, '_') // Replace spaces with underscores
     .trim();
 }
 
 /**
- * Find the actual folder name for a song by fuzzy matching
+ * Convert song name to match folder naming convention
+ * - Apostrophes (') -> underscores (_)
+ * - Question marks (?) -> hash (#)
+ * - Colons (:) -> hash (#)
+ * - Double quotes (") -> hash (#)
  */
-function findSongFolder(songName: string, artists: string, separatedPath: string): string | null {
-  const availableFolders = fs.readdirSync(separatedPath);
-  
-  // Clean the song name and artists for matching
-  const cleanSong = songName.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const cleanArtists = artists.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  
-  // Try to find a folder that contains the song name or artist
-  for (const folder of availableFolders) {
-    const folderLower = folder.toLowerCase();
-    
-    // Check if folder name contains significant parts of the song name
-    const songWords = cleanSong.split(/\s+/).filter(w => w.length > 2); // Skip short words
-    const matchingWords = songWords.filter(word => folderLower.includes(word));
-    
-    // If most of the song name words are in the folder, it's likely a match
-    if (matchingWords.length >= Math.min(2, songWords.length)) {
-      return folder;
-    }
-    
-    // Also check for artist name
-    const artistWords = cleanArtists.split(/\s+/).filter(w => w.length > 2);
-    const matchingArtists = artistWords.filter(word => folderLower.includes(word));
-    
-    if (matchingArtists.length > 0 && matchingWords.length > 0) {
-      return folder;
-    }
-  }
-  
-  return null;
+function convertToFolderName(songName: string): string {
+  return songName
+    .replace(/"/g, '#')  // Double quotes to hash
+    .replace(/'/g, '_')   // Apostrophes to underscores
+    .replace(/\?/g, '#')  // Question marks to hash
+    .replace(/:/g, '#');  // Colons to hash
 }
 
 /**
@@ -120,28 +99,54 @@ function runFFmpeg(args: string[]): Promise<void> {
 }
 
 /**
- * Check if all stems exist for a song
+ * Check if all required stems exist for a song
  */
-function checkStemsExist(songFolder: string): boolean {
-  const stems = ['drums.mp3', 'guitar.mp3', 'bass.mp3', 'piano.mp3', 'vocals.mp3'];
-  return stems.every(stem => fs.existsSync(path.join(songFolder, stem)));
+function checkStemsExist(songFolder: string): { exists: boolean; missing: string[] } {
+  const requiredStems = ['drums.mp3', 'bass.mp3', 'guitar.mp3', 'piano.mp3', 'vocals.mp3', 'other.mp3'];
+  const missing: string[] = [];
+  
+  for (const stem of requiredStems) {
+    if (!fs.existsSync(path.join(songFolder, stem))) {
+      missing.push(stem);
+    }
+  }
+  
+  return {
+    exists: missing.length === 0,
+    missing
+  };
 }
 
 /**
  * Process a single song
+ * @returns true if song was processed, false if skipped (already exists)
  */
-async function processSong(songName: string, actualFolderName: string): Promise<void> {
+async function processSong(songName: string): Promise<boolean> {
+  // Convert apostrophes to underscores to match folder naming convention
+  const folderName = convertToFolderName(songName);
+  const separatedFolder = path.join(SEPARATED_PATH, folderName);
   const sanitizedName = sanitizeSongName(songName);
-  const separatedFolder = path.join(SEPARATED_PATH, actualFolderName);
   const preprocessedFolder = path.join(PREPROCESSED_PATH, sanitizedName);
   
-  // Check if stems exist
+  const level1Path = path.join(preprocessedFolder, 'level1.mp3');
+  const level2Path = path.join(preprocessedFolder, 'level2.mp3');
+  const level3Path = path.join(preprocessedFolder, 'level3.mp3');
+  
+  // Check if all preprocessed files already exist
+  if (fs.existsSync(level1Path) && fs.existsSync(level2Path) && fs.existsSync(level3Path)) {
+    console.log(`  ⏭️  Skipping: Already preprocessed`);
+    return false;
+  }
+  
+  // Check if separated folder exists
   if (!fs.existsSync(separatedFolder)) {
     throw new Error(`Separated folder not found: ${separatedFolder}`);
   }
   
-  if (!checkStemsExist(separatedFolder)) {
-    throw new Error(`Missing stems in: ${separatedFolder}`);
+  // Check if all stems exist
+  const stemCheck = checkStemsExist(separatedFolder);
+  if (!stemCheck.exists) {
+    throw new Error(`Missing stems in ${separatedFolder}: ${stemCheck.missing.join(', ')}`);
   }
   
   // Create preprocessed folder
@@ -149,24 +154,25 @@ async function processSong(songName: string, actualFolderName: string): Promise<
     fs.mkdirSync(preprocessedFolder, { recursive: true });
   }
   
-  const level1Path = path.join(preprocessedFolder, 'level1.mp3');
-  const level2Path = path.join(preprocessedFolder, 'level2.mp3');
-  const level3Path = path.join(preprocessedFolder, 'level3.mp3');
-  
-  // Level 1: Copy drums
-  console.log(`  - Creating level1 (drums only)...`);
-  fs.copyFileSync(
-    path.join(separatedFolder, 'drums.mp3'),
-    level1Path
-  );
-  
-  // Level 2: Mix drums + guitar + bass + piano
-  console.log(`  - Creating level2 (drums+guitar+bass+piano)...`);
+  // Level 1: Mix drums + bass
+  console.log(`  - Creating level1 (drums + bass)...`);
   await runFFmpeg([
     '-y',
     '-i', path.join(separatedFolder, 'drums.mp3'),
-    '-i', path.join(separatedFolder, 'guitar.mp3'),
     '-i', path.join(separatedFolder, 'bass.mp3'),
+    '-filter_complex', 'amix=inputs=2:duration=first:dropout_transition=0',
+    '-c:a', 'libmp3lame',
+    '-qscale:a', '4',
+    level1Path
+  ]);
+  
+  // Level 2: Mix drums + bass + guitar + piano
+  console.log(`  - Creating level2 (drums + bass + guitar + piano)...`);
+  await runFFmpeg([
+    '-y',
+    '-i', path.join(separatedFolder, 'drums.mp3'),
+    '-i', path.join(separatedFolder, 'bass.mp3'),
+    '-i', path.join(separatedFolder, 'guitar.mp3'),
     '-i', path.join(separatedFolder, 'piano.mp3'),
     '-filter_complex', 'amix=inputs=4:duration=first:dropout_transition=0',
     '-c:a', 'libmp3lame',
@@ -174,22 +180,24 @@ async function processSong(songName: string, actualFolderName: string): Promise<
     level2Path
   ]);
   
-  // Level 3: Mix all including vocals
-  console.log(`  - Creating level3 (full mix)...`);
+  // Level 3: Mix everything (drums + bass + guitar + piano + vocals + other)
+  console.log(`  - Creating level3 (full mix: drums + bass + guitar + piano + vocals + other)...`);
   await runFFmpeg([
     '-y',
     '-i', path.join(separatedFolder, 'drums.mp3'),
-    '-i', path.join(separatedFolder, 'guitar.mp3'),
     '-i', path.join(separatedFolder, 'bass.mp3'),
+    '-i', path.join(separatedFolder, 'guitar.mp3'),
     '-i', path.join(separatedFolder, 'piano.mp3'),
     '-i', path.join(separatedFolder, 'vocals.mp3'),
-    '-filter_complex', 'amix=inputs=5:duration=first:dropout_transition=0',
+    '-i', path.join(separatedFolder, 'other.mp3'),
+    '-filter_complex', 'amix=inputs=6:duration=first:dropout_transition=0',
     '-c:a', 'libmp3lame',
     '-qscale:a', '4',
     level3Path
   ]);
   
   console.log(`  ✅ Completed preprocessing`);
+  return true;
 }
 
 /**
@@ -207,8 +215,7 @@ async function main() {
   // Check if separated folder exists
   if (!fs.existsSync(SEPARATED_PATH)) {
     console.error(`❌ Separated folder not found: ${SEPARATED_PATH}`);
-    console.error('Please create the "separated" folder with stem files.');
-    console.error('Expected: C:\\Users\\dell\\Desktop\\Guess_the_song\\app\\backend\\separated');
+    console.error('Please ensure the "separated" folder exists with stem files.');
     process.exit(1);
   }
   
@@ -232,6 +239,7 @@ async function main() {
   // Process each song
   const processedSongs: PreprocessedSong[] = [];
   let successCount = 0;
+  let skipCount = 0;
   let failCount = 0;
   
   for (let i = 0; i < songs.length; i++) {
@@ -242,18 +250,8 @@ async function main() {
     console.log(`[${i + 1}/${songs.length}] Processing: ${songName}`);
     
     try {
-      // Find the actual folder name using fuzzy matching
-      const actualFolderName = findSongFolder(songName, artists, SEPARATED_PATH);
-      
-      if (!actualFolderName) {
-        console.log(`  ⏭️  Skipping: No matching folder found`);
-        failCount++;
-        console.log('');
-        continue;
-      }
-      
-      console.log(`  📁 Found folder: ${actualFolderName}`);
-      await processSong(songName, actualFolderName);
+      // Use exact Song_Name from CSV (folder name should match exactly)
+      const wasProcessed = await processSong(songName);
       
       const sanitizedName = sanitizeSongName(songName);
       const releaseYear = parseFloat(song.Release);
@@ -261,7 +259,7 @@ async function main() {
       
       processedSongs.push({
         name: songName,
-        artists: song.Artists.trim(),
+        artists: artists,
         youtube_link: song.YouTube_Link.trim(),
         viewcount: parseInt(song.ViewCount),
         release_year: releaseYear,
@@ -273,7 +271,11 @@ async function main() {
         }
       });
       
-      successCount++;
+      if (wasProcessed) {
+        successCount++;
+      } else {
+        skipCount++;
+      }
     } catch (error: any) {
       console.error(`  ❌ Failed: ${error.message}`);
       failCount++;
@@ -287,7 +289,8 @@ async function main() {
   
   console.log('\n' + '='.repeat(60));
   console.log(`✅ Preprocessing complete!`);
-  console.log(`   Success: ${successCount} songs`);
+  console.log(`   Processed: ${successCount} songs`);
+  console.log(`   Skipped (already exists): ${skipCount} songs`);
   console.log(`   Failed: ${failCount} songs`);
   console.log(`   Output: ${OUTPUT_JSON}`);
   console.log('='.repeat(60));
@@ -300,4 +303,3 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-
