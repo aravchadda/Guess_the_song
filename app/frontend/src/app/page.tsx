@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import TVWithVideo from "@/components/TVWithVideo";
 
 // List of all videos in public folder
 const videos = [
@@ -174,41 +175,14 @@ export default function Home(): JSX.Element {
       {/* --- Background (only visible after zoom) --- */}
       
 
-      {/* --- TV VIDEO --- */}
-      <motion.div
-        className="absolute z-[0] w-[80vw] sm:w-[60vw] md:w-[50vw] lg:w-[40vw] max-w-xl left-1/2 -translate-x-1/2 md:left-[400px] md:translate-x-0 rounded-3xl shadow-2xl overflow-hidden"
-        style={{
-          aspectRatio: "3/2",
-          clipPath: "inset(8% 8% 8% 8%)",
-        }}
-        animate={{
-          scale: hold ? 1.5 : 1,
-         
-        }}
-        transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
-      >
-        <video
-          id="tv-video"
-          src={selectedVideo || videos[0]}
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-          style={{ opacity: 0.3 }}
+      {/* --- TV WITH VIDEO --- */}
+      <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <TVWithVideo 
+          videoSrc={selectedVideo || videos[0]} 
+          hold={hold}
+          videoId="tv-video"
         />
-      </motion.div>
-
-      {/* --- TV FRAME --- */}
-      <motion.img
-        src="/TV.png"
-        alt="TV Frame"
-        className="absolute z-20 w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[50vw] max-w-2xl rounded-3xl shadow-2xl object-contain pointer-events-none"
-        animate={{
-          scale: hold ? 1.5 : 1,
-          
-        }}
-        transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
-      />
+      </div>
 
       {/* --- TEXT CONTENT --- */}
       <motion.div
