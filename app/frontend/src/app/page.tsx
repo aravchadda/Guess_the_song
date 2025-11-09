@@ -260,34 +260,49 @@ export default function Home(): JSX.Element {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.5 }}
-      className="absolute z-30 flex flex-col items-center justify-center gap-10 mt-8"
+      className="absolute z-30 flex flex-col items-center justify-center gap-6 sm:gap-8 mt-8"
     >
-      <Link href="/game">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
+      <Link href="/game" className="block">
+        <motion.div
+          whileHover={{ x: 10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          className="text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-[#e2dcde] tracking-widest bg-[#be1d15] text-[#e2dcde] shadow-lg"
+          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
+          style={{
+            fontFamily: "var(--font-press-start-2p), monospace",
+            textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
+            letterSpacing: "2px",
+          }}
         >
-          PLAY GAME
-        </motion.button>
+          PLAY ALL
+        </motion.div>
       </Link>
-      <Link href="/game">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
+      <Link href="/game" className="block">
+        <motion.div
+          whileHover={{ x: 10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          className="text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-[#e2dcde] tracking-widest bg-[#be1d15] text-[#e2dcde] shadow-lg"
+          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
+          style={{
+            fontFamily: "var(--font-press-start-2p), monospace",
+            textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
+            letterSpacing: "2px",
+          }}
         >
-          PLAY RANDOM 
-        </motion.button>
+          PLAY POST 20s
+        </motion.div>
       </Link>
-      <Link href="/game">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
+      <Link href="/game" className="block">
+        <motion.div
+          whileHover={{ x: 10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          className="text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-[#e2dcde] tracking-widest bg-[#be1d15] text-[#e2dcde] shadow-lg"
+          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
+          style={{
+            fontFamily: "var(--font-press-start-2p), monospace",
+            textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
+            letterSpacing: "2px",
+          }}
         >
-          SELECT GENRE
-        </motion.button>
+          USER STATS
+        </motion.div>
       </Link>
     </motion.div>
   )}

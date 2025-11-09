@@ -15,10 +15,12 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-use-measure": "^2.1.7",
+    "react-vfx": "^0.13.0",
     "recharts": "^2.10.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.1",
+    "@types/html2canvas": "^0.5.35",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
