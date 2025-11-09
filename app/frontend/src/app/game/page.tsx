@@ -196,7 +196,7 @@ function GameContent() {
     const decades = [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020];
     
     return (
-      <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-purple-500 via-pink-500 to-red-500">
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
         <div className="max-w-2xl w-full bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-12">
           <h1 className="text-4xl font-bold text-center mb-8 text-gray-800 dark:text-gray-100">
             Choose a Decade
@@ -227,7 +227,7 @@ function GameContent() {
   
   if (isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
           <p className="text-white text-xl font-semibold">Loading audio...</p>
@@ -237,7 +237,7 @@ function GameContent() {
   }
   
   return (
-    <main className="min-h-screen p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+    <main className="min-h-screen p-8 bg-[#0E0E10]">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -414,7 +414,7 @@ function GameContent() {
 export default function GamePage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
           <p className="text-white text-xl font-semibold">Loading...</p>

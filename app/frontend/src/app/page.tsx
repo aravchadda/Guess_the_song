@@ -1,72 +1,324 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
-export default function Home() {
+// List of all videos in public folder
+const videos = [
+  "/ariana.MOV",
+  "/bad-bunny.MOV",
+  "/kendrick.MOV",
+  "/single-ladies.MOV",
+  "/royals.MOV",
+  "/hard-times.MOV",
+  "/tame-impala.MOV",
+];
+
+export default function Home(): JSX.Element {
+  const [hold, setHold] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const [triggered, setTriggered] = useState(false);
+  const [holdProgress, setHoldProgress] = useState(0);
+  const [showBackground, setShowBackground] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<string>("");
+  const router = useRouter();
+  const holdTimer = useRef<NodeJS.Timeout | null>(null);
+  const filterRef = useRef<BiquadFilterNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Random video
+  useEffect(() => {
+    const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+    setSelectedVideo(randomVideo);
+  }, []);
+
+  // Handle tab visibility (mute/resume)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+
+      if (document.hidden) {
+        if (video && !video.paused) video.muted = true;
+        if (audioCtxRef.current?.state === "running") {
+          audioCtxRef.current.suspend().catch(console.log);
+        }
+      } else {
+        if (video && !video.paused) video.muted = false;
+        if (audioCtxRef.current?.state === "suspended") {
+          audioCtxRef.current.resume().catch(console.log);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (e.code === "Space" && !triggered && !holdTimer.current) {
+        let startTime = Date.now();
+        const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+
+        if (video) {
+          // 🎵 Setup audio context & filter
+          if (!audioCtxRef.current) {
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaElementSource(video);
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = "highpass";
+            filter.frequency.value = 2000;
+            source.connect(filter);
+            filter.connect(audioCtx.destination);
+            audioCtxRef.current = audioCtx;
+            filterRef.current = filter;
+          }
+
+          video.muted = false;
+          try {
+            await audioCtxRef.current!.resume();
+            await video.play();
+          } catch (err) {
+            console.log("Playback error:", err);
+          }
+
+          // Smooth fade-in for volume
+          video.volume = 0;
+          const fadeIn = setInterval(() => {
+            if (video.volume < 1) video.volume = Math.min(1, video.volume + 0.05);
+            else clearInterval(fadeIn);
+          }, 100);
+        }
+
+        // Hold logic (2 seconds)
+        holdTimer.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / 2000, 1);
+          setHoldProgress(progress);
+
+          // 🎚️ Fade out high-pass
+          if (filterRef.current && audioCtxRef.current) {
+            const targetFreq = 2000 - progress * 2000;
+            filterRef.current.frequency.setValueAtTime(
+              Math.max(targetFreq, 0),
+              audioCtxRef.current.currentTime
+            );
+          }
+
+          if (progress >= 1) {
+            clearInterval(holdTimer.current!);
+            holdTimer.current = null;
+            setTriggered(true);
+            setHold(true);
+
+            // Turn off filter
+            if (filterRef.current && audioCtxRef.current) {
+              filterRef.current.frequency.setValueAtTime(0, audioCtxRef.current.currentTime);
+            }
+
+            // Start zoom animation
+            setTimeout(() => {
+              setZoomed(true);
+              // ⏱️ Show background after fade-out completes
+              setTimeout(() => setShowBackground(true),0);
+            }, 3500);
+          }
+        }, 20);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !triggered) {
+        if (holdTimer.current) {
+          clearInterval(holdTimer.current);
+          holdTimer.current = null;
+        }
+        setHoldProgress(0);
+
+        if (filterRef.current && audioCtxRef.current) {
+          filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [triggered]);
+
+  const letterVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" as const },
+    }),
+  };
+
+  const titleLetters = [
+    { text: "R", color: "#4A75AC" },
+    { text: "E", color: "#4A75AC" },
+    { text: "P", color: "#E2DCDE" },
+    { text: "L", color: "#E2DCDE" },
+    { text: "A", color: "#E2DCDE" },
+    { text: "Y", color: "#E2DCDE" },
+  ];
+
   return (
-    <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
-      <div className="max-w-2xl w-full bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-12">
-        <h1 className="text-5xl font-bold text-center mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-          🎵 Guess The Song
+    <main className="relative min-h-screen flex items-center justify-center bg-[#0E0E10] overflow-hidden">
+      {/* --- Background (only visible after zoom) --- */}
+      
+
+      {/* --- TV VIDEO --- */}
+      <motion.div
+        className="absolute z-[0] w-[80vw] sm:w-[60vw] md:w-[50vw] lg:w-[40vw] max-w-xl left-1/2 -translate-x-1/2 md:left-[400px] md:translate-x-0 rounded-3xl shadow-2xl overflow-hidden"
+        style={{
+          aspectRatio: "3/2",
+          clipPath: "inset(8% 8% 8% 8%)",
+        }}
+        animate={{
+          scale: hold ? 1.5 : 1,
+         
+        }}
+        transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
+      >
+        <video
+          id="tv-video"
+          src={selectedVideo || videos[0]}
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+          style={{ opacity: 0.3 }}
+        />
+      </motion.div>
+
+      {/* --- TV FRAME --- */}
+      <motion.img
+        src="/TV.png"
+        alt="TV Frame"
+        className="absolute z-20 w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[50vw] max-w-2xl rounded-3xl shadow-2xl object-contain pointer-events-none"
+        animate={{
+          scale: hold ? 1.5 : 1,
+          
+        }}
+        transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
+      />
+
+      {/* --- TEXT CONTENT --- */}
+      <motion.div
+        className="relative z-20 text-center px-4 sm:px-6 text-white left-0 md:-left-[43px]"
+        animate={{
+          opacity: hold ? 0 : 1,
+          scale: hold ? 0.95 : 1,
+        }}
+        transition={{ duration: 0.8, ease: "easeInOut" }}
+      >
+      
+
+        <h1 className="text-4xl sm:text-5xl md:text-8xl lg:text-8xl font-extrabold mb-4 select-none flex justify-center flex-wrap">
+          {titleLetters.map((letter, i) => (
+            <motion.span
+              key={i}
+              custom={i}
+              variants={letterVariants}
+              initial="hidden"
+              animate="visible"
+              style={{ color: letter.color }}
+              className="inline-block"
+            >
+              {letter.text}
+            </motion.span>
+          ))}
         </h1>
-        
-        <p className="text-lg text-gray-700 dark:text-gray-300 text-center mb-8">
-          Test your music knowledge! Listen to progressive reveals and guess the song.
-        </p>
-        
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            How to Play:
-          </h2>
-          <ol className="space-y-3 text-gray-700 dark:text-gray-300">
-            <li className="flex items-start">
-              <span className="font-bold text-indigo-600 mr-3">1.</span>
-              <span>Listen to <strong>Level 1</strong> (drums only)</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-bold text-indigo-600 mr-3">2.</span>
-              <span>If you can't guess, advance to <strong>Level 2</strong> (drums + instruments)</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-bold text-indigo-600 mr-3">3.</span>
-              <span>Still stuck? Advance to <strong>Level 3</strong> (full song with vocals)</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-bold text-indigo-600 mr-3">4.</span>
-              <span>You have <strong>3 attempts</strong> to guess correctly</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-bold text-indigo-600 mr-3">5.</span>
-              <span>Your goal: Guess with as few clues as possible!</span>
-            </li>
-          </ol>
-        </div>
-        
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-center mb-4 text-gray-800 dark:text-gray-200">
-            Choose Mode:
-          </h2>
-          
-          <Link href="/game?mode=random">
-            <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105">
-              🎲 Random Song
-            </button>
-          </Link>
-          
-          <Link href="/game?mode=decade">
-            <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105">
-              📅 Pick a Decade
-            </button>
-          </Link>
-          
-          <Link href="/stats">
-            <button className="w-full bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105">
-              📊 View Statistics
-            </button>
-          </Link>
-        </div>
-      </div>
+
+        <motion.p
+          className="text-gray-300 mb-6 sm:mb-8 md:mb-10 text-xs sm:text-sm md:text-base px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+        >
+          An interactive journey through ten years of sound.
+        </motion.p>
+
+        {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
+        {!zoomed && !triggered && (
+          <motion.div
+            className="flex flex-col items-center space-y-4 sm:space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.6 }}
+          >
+            <p className="text-gray-400 text-xs sm:text-sm px-4 text-center">
+              Hold{" "}
+              <span className="px-2 sm:px-3 py-1 border border-gray-500 rounded-lg text-xs sm:text-sm">
+                spacebar
+              </span>{" "}
+              for <strong>2 seconds</strong> to charge and enter.
+            </p>
+
+            <motion.button
+              className="relative text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
+            >
+              <span className="relative z-10">ENTER</span>
+              <motion.span
+                className="absolute inset-0 rounded-full border-2 border-[#4A75AC]"
+                style={{
+                  clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
+                }}
+                transition={{ duration: 0.1, ease: "linear" }}
+              />
+            </motion.button>
+          </motion.div>
+        )}
+      </motion.div>
+
+
+<AnimatePresence>
+  {zoomed && (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 10 }}
+      transition={{ duration: 0.5 }}
+      className="absolute z-30 flex flex-col items-center justify-center gap-10 mt-8"
+    >
+      <Link href="/game">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-[#e2dcde] tracking-widest bg-[#be1d15] text-[#e2dcde] shadow-lg"
+        >
+          PLAY GAME
+        </motion.button>
+      </Link>
+      <Link href="/game">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-[#e2dcde] tracking-widest bg-[#be1d15] text-[#e2dcde] shadow-lg"
+        >
+          PLAY RANDOM 
+        </motion.button>
+      </Link>
+      <Link href="/game">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-[#e2dcde] tracking-widest bg-[#be1d15] text-[#e2dcde] shadow-lg"
+        >
+          SELECT GENRE
+        </motion.button>
+      </Link>
+    </motion.div>
+  )}
+</AnimatePresence>
+
     </main>
   );
 }
-

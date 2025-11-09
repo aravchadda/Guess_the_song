@@ -28,7 +28,7 @@ export default function StatsPage() {
   
   if (isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
           <p className="text-white text-xl font-semibold">Loading statistics...</p>
@@ -39,7 +39,7 @@ export default function StatsPage() {
   
   if (error) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
         <div className="text-center">
           <p className="text-white text-xl font-semibold mb-4">❌ {error}</p>
           <Link href="/">
@@ -67,7 +67,7 @@ export default function StatsPage() {
     : '0.0';
   
   return (
-    <main className="min-h-screen p-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+    <main className="min-h-screen p-8 bg-[#0E0E10]">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
