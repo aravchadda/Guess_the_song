@@ -64,6 +64,12 @@ export default function Home() {
               📊 View Statistics
             </button>
           </Link>
+          
+          <Link href="/carousel">
+            <button className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105">
+              🎰 Album Slot Machine
+            </button>
+          </Link>
         </div>
       </div>
     </main>
