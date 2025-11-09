@@ -9,8 +9,8 @@ export async function GET(
   try {
     const filename = params.filename;
     
-    // Path to album covers directory (one level up from frontend to app, then to album-covers)
-    const albumCoversPath = path.join(process.cwd(), '..', 'album-covers', filename);
+    // Path to album covers directory in public folder
+    const albumCoversPath = path.join(process.cwd(), 'public', 'album-covers', filename);
     
     // Check if file exists
     if (!fs.existsSync(albumCoversPath)) {
