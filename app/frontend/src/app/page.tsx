@@ -261,7 +261,7 @@ export default function Home(): JSX.Element {
         transformOrigin: 'right center',
       }}
     >
-      <Link href="/game" className="block">
+      <Link href="/game?mode=all" className="block">
         <motion.div
           whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
@@ -271,14 +271,14 @@ export default function Home(): JSX.Element {
           PLAY ALL
         </motion.div>
       </Link>
-      <Link href="/game" className="block">
+      <Link href="/game?mode=post00s" className="block">
         <motion.div
           whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
           style={menuButtonStyle}
         >
-          PLAY POST 20s
+          PLAY POST 00s
         </motion.div>
       </Link>
       <Link href="/game" className="block">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAudioManager } from '@/lib/audioManager';
 import { startPlay, submitGuess, skipLevel, searchSongs, API_URL } from '@/lib/api';
@@ -50,6 +51,9 @@ const carouselItems = albumCovers.map(cover => ({
 }));
 
 export default function GamePage() {
+  const searchParams = useSearchParams();
+  const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
+  
   const [showGameScreen, setShowGameScreen] = useState(false);
   const [carouselOpacity, setCarouselOpacity] = useState(1);
   const [isSpacebarHeld, setIsSpacebarHeld] = useState(false);
@@ -88,8 +92,8 @@ export default function GamePage() {
       // Initialize audio context
       await audioManager.current.initialize();
       
-      // Start play
-      const playResponse = await startPlay('random');
+      // Start play with appropriate mode
+      const playResponse = await startPlay('random', gameMode === 'post00s' ? 2000 : undefined);
       
       setPlayId(playResponse.playId);
       setSong(playResponse.song);
@@ -109,7 +113,7 @@ export default function GamePage() {
       setMessage(`❌ Error: ${error.message}`);
       setIsLoading(false);
     }
-  }, []);
+  }, [gameMode]);
 
   const handlePlay = () => {
     if (!song) return;

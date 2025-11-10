@@ -55,13 +55,13 @@ export interface SearchResult {
 /**
  * Start a new play session
  */
-export async function startPlay(mode: 'random' | 'decade', value?: string): Promise<PlayResponse> {
+export async function startPlay(mode: 'random' | 'decade', minYear?: number): Promise<PlayResponse> {
   const response = await fetch(`${API_URL}/api/plays/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ mode, value }),
+    body: JSON.stringify({ mode, minYear }),
   });
   
   if (!response.ok) {

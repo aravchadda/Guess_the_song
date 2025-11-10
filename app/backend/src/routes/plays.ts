@@ -12,7 +12,7 @@ const router = Router();
  */
 router.post('/start', async (req: Request, res: Response) => {
   try {
-    const { mode = 'random', value } = req.body;
+    const { mode = 'random', value, minYear } = req.body;
     
     // Validate mode
     if (!['random', 'decade'].includes(mode)) {
@@ -33,6 +33,15 @@ router.post('/start', async (req: Request, res: Response) => {
       }
       query.decade = decade;
       modeValue = decade.toString();
+    }
+    
+    // Filter by minimum year if provided
+    if (minYear !== undefined && minYear !== null) {
+      const year = parseInt(minYear);
+      if (isNaN(year)) {
+        return res.status(400).json({ error: 'minYear must be a number' });
+      }
+      query.release_year = { $gte: year };
     }
     
     // Get random song matching the criteria
