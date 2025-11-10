@@ -239,6 +239,30 @@ export default function GamePage() {
     setShowGameScreen(false);
   };
 
+  // Function to return to carousel from game screen
+  const returnToCarousel = useCallback(() => {
+    if (!showGameScreen) return;
+    
+    // Reset animation sequence states
+    setShowBlackScreen(false);
+    setShowYear(false);
+    setShowViews(false);
+    setShowFullGameScreen(false);
+    
+    // Reset carousel state
+    setIsSpacebarHeld(false);
+    setSpeedMultiplier(1);
+    setHoldProgress(0);
+    spacebarHoldStartTimeRef.current = null;
+    
+    // Hide game screen first, then fade in carousel
+    setShowGameScreen(false);
+    // Small delay to allow game screen to start fading out
+    setTimeout(() => {
+      setCarouselOpacity(1);
+    }, 100);
+  }, [showGameScreen]);
+
   // Function to immediately cut to game screen with animation sequence
   const cutToGameScreen = useCallback(() => {
     if (showGameScreen) return;
@@ -338,22 +362,39 @@ export default function GamePage() {
   // Handle spacebar key press and release
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !showGameScreen) {
+      if (e.code === 'Space') {
         e.preventDefault();
-        setIsSpacebarHeld(true);
+        
+        if (showGameScreen) {
+          // If on game screen, return to carousel
+          returnToCarousel();
+        } else {
+          // If on carousel, start holding
+          setIsSpacebarHeld(true);
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !showGameScreen && isSpacebarHeld) {
         e.preventDefault();
-        // Immediately reset speed to 1 (abrupt transition)
+        
+        // Check if 2 seconds have passed
+        const elapsed = spacebarHoldStartTimeRef.current 
+          ? (Date.now() - spacebarHoldStartTimeRef.current) / 1000 
+          : 0;
+        const hasHeldFor2Seconds = elapsed >= 2;
+        
+        // Reset speed and progress
         setSpeedMultiplier(1);
         setHoldProgress(0);
         spacebarHoldStartTimeRef.current = null;
         setIsSpacebarHeld(false);
-        // Immediately cut to game screen
-        cutToGameScreen();
+        
+        // Only transition to game screen if held for 2 seconds
+        if (hasHeldFor2Seconds) {
+          cutToGameScreen();
+        }
       }
     };
 
@@ -363,7 +404,7 @@ export default function GamePage() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showGameScreen, isSpacebarHeld, cutToGameScreen]);
+  }, [showGameScreen, isSpacebarHeld, cutToGameScreen, returnToCarousel]);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -380,7 +421,8 @@ export default function GamePage() {
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center"
             initial={false}
-            style={{ opacity: carouselOpacity }}
+            animate={{ opacity: carouselOpacity }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
           >
             {/* Row 1 - Top (slower, right to left) */}
             <div className="w-full absolute" style={{ top: 'calc(50vh - 210px)', transform: 'translateY(-50%)' }}>
@@ -458,7 +500,7 @@ export default function GamePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
           >
             {isLoading ? (
               <div className="text-center py-8 flex-1 flex items-center justify-center">
@@ -634,30 +676,43 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* Spacebar Button */}
-      <AnimatePresence>
-        {!showGameScreen && (
-          <motion.button
-            onClick={cutToGameScreen}
-            className="fixed bottom-8 text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden z-50"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: carouselOpacity, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <span className="relative z-10">space</span>
-            <motion.span
-              className="absolute inset-0 rounded-full border-2 border-[#4A75AC]"
-              style={{
-                clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
-              }}
-              transition={{ duration: 0.1, ease: "linear" }}
-            />
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* Spacebar Button - Always visible */}
+      <motion.div
+        className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
+        transition={{ duration: 0.3 }}
+      >
+        <motion.div
+          className="flex flex-col items-center space-y-4 sm:space-y-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0 }}
+        >
+          <p className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
+            Hold{" "}
+            <motion.button
+              onClick={showGameScreen ? returnToCarousel : undefined}
+              className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
+              style={{ minWidth: '80px' }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="relative z-10">SPACE</span>
+              {!showGameScreen && (
+                <motion.span
+                  className="absolute inset-0 rounded border-2 border-[#4A75AC]"
+                  style={{
+                    clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
+                  }}
+                  transition={{ duration: 0.1, ease: "linear" }}
+                />
+              )}
+            </motion.button>{" "}
+            for <strong>2 seconds</strong> to charge and enter.
+          </p>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
