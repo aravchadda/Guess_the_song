@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 import TVWithVideo from "@/components/TVWithVideo";
 
 // List of all videos in public folder
@@ -22,9 +21,7 @@ export default function Home(): JSX.Element {
   const [zoomed, setZoomed] = useState(false);
   const [triggered, setTriggered] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
-  const [showBackground, setShowBackground] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string>("");
-  const router = useRouter();
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -122,8 +119,6 @@ export default function Home(): JSX.Element {
             // Start zoom animation
             setTimeout(() => {
               setZoomed(true);
-              // ⏱️ Show background after fade-out completes
-              setTimeout(() => setShowBackground(true),0);
             }, 3500);
           }
         }, 20);
@@ -170,11 +165,14 @@ export default function Home(): JSX.Element {
     { text: "Y", color: "#E2DCDE" },
   ];
 
+  const menuButtonStyle = {
+    fontFamily: "var(--font-press-start-2p), monospace",
+    textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
+    letterSpacing: "2px",
+  };
+
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[#0E0E10] overflow-hidden">
-      {/* --- Background (only visible after zoom) --- */}
-      
-
       {/* --- TV WITH VIDEO --- */}
       <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
         <TVWithVideo 
@@ -193,8 +191,6 @@ export default function Home(): JSX.Element {
         }}
         transition={{ duration: 0.8, ease: "easeInOut" }}
       >
-      
-
         <h1 className="text-4xl sm:text-5xl md:text-8xl lg:text-8xl font-extrabold mb-4 select-none flex justify-center flex-wrap">
           {titleLetters.map((letter, i) => (
             <motion.span
@@ -228,26 +224,23 @@ export default function Home(): JSX.Element {
             animate={{ opacity: 1 }}
             transition={{ delay: 1.6 }}
           >
-            <p className="text-gray-400 text-xs sm:text-sm px-4 text-center">
+            <p className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
               Hold{" "}
-              <span className="px-2 sm:px-3 py-1 border border-gray-500 rounded-lg text-xs sm:text-sm">
-                spacebar
-              </span>{" "}
+              <motion.button
+                className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
+                style={{ minWidth: '80px' }}
+              >
+                <span className="relative z-10">SPACE</span>
+                <motion.span
+                  className="absolute inset-0 rounded border-2 border-[#4A75AC]"
+                  style={{
+                    clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
+                  }}
+                  transition={{ duration: 0.1, ease: "linear" }}
+                />
+              </motion.button>{" "}
               for <strong>2 seconds</strong> to charge and enter.
             </p>
-
-            <motion.button
-              className="relative text-xs sm:text-sm px-6 sm:px-8 md:px-10 py-2 sm:py-3 rounded-full border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
-            >
-              <span className="relative z-10">ENTER</span>
-              <motion.span
-                className="absolute inset-0 rounded-full border-2 border-[#4A75AC]"
-                style={{
-                  clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
-                }}
-                transition={{ duration: 0.1, ease: "linear" }}
-              />
-            </motion.button>
           </motion.div>
         )}
       </motion.div>
@@ -260,46 +253,40 @@ export default function Home(): JSX.Element {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.5 }}
-      className="absolute z-30 flex flex-col items-center justify-center gap-6 sm:gap-8 mt-8"
+      className="absolute z-30 flex flex-col items-end gap-6 sm:gap-8"
+      style={{
+        right: 'calc(50% + 37.5vw - 50.25vw)',
+        top: '50%',
+        transform: 'translate(0, calc(-50% - 2.5rem)) scale(1.5)',
+        transformOrigin: 'right center',
+      }}
     >
       <Link href="/game" className="block">
         <motion.div
-          whileHover={{ x: 10, scale: 1.1 }}
+          whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
-          style={{
-            fontFamily: "var(--font-press-start-2p), monospace",
-            textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
-            letterSpacing: "2px",
-          }}
+          style={menuButtonStyle}
         >
           PLAY ALL
         </motion.div>
       </Link>
       <Link href="/game" className="block">
         <motion.div
-          whileHover={{ x: 10, scale: 1.1 }}
+          whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
-          style={{
-            fontFamily: "var(--font-press-start-2p), monospace",
-            textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
-            letterSpacing: "2px",
-          }}
+          style={menuButtonStyle}
         >
           PLAY POST 20s
         </motion.div>
       </Link>
       <Link href="/game" className="block">
         <motion.div
-          whileHover={{ x: 10, scale: 1.1 }}
+          whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
-          style={{
-            fontFamily: "var(--font-press-start-2p), monospace",
-            textShadow: "2px 2px 0px #000, 4px 4px 0px rgba(0,0,0,0.3)",
-            letterSpacing: "2px",
-          }}
+          style={menuButtonStyle}
         >
           USER STATS
         </motion.div>
