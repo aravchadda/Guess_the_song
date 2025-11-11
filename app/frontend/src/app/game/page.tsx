@@ -7,6 +7,7 @@ import { getAudioManager } from '@/lib/audioManager';
 import { startPlay, submitGuess, skipLevel, searchSongs, API_URL } from '@/lib/api';
 import type { Song, GuessResponse, SearchResult } from '@/lib/api';
 import Carousel from '@/components/Carousel';
+import VideoPlayer from '@/components/VideoPlayer';
 
 // List of album cover filenames
 const albumCovers = [
@@ -917,58 +918,36 @@ export default function GamePage() {
       </AnimatePresence>
       
       {/* Overlay Video Background */}
-       {/* <AnimatePresence>
+       <AnimatePresence>
         {!showGameScreen && (
           <motion.video
             ref={overlayVideoRef}
-            src="/overlay.mp4"
+            src="/overlayGrain.mov"
             loop
             muted
             playsInline
             autoPlay
             className="absolute inset-0 w-full h-full object-cover z-[1]"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
+            animate={{ opacity: 0.2 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           />
         )}
-      </AnimatePresence> */}
+      </AnimatePresence>
 
       {/* Game Screen Background Videos */}
       <AnimatePresence>
         {showGameScreen && (
           <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
-            <div className="relative w-1/2 h-full flex items-center justify-center">
-              <video
-                ref={onVideoRef}
-                src="/on.mp4"
-                playsInline
-                muted
-                preload="auto"
-                className="w-full h-full object-contain"
-                style={{ display: 'none' }}
-              />
-              <video
-                ref={runningVideoRef}
-                src="/running.mp4"
-                loop
-                playsInline
-                muted
-                preload="auto"
-                className="w-full h-full object-contain"
-                style={{ display: 'none' }}
-              />
-              <video
-                ref={offVideoRef}
-                src="/off.mp4"
-                playsInline
-                muted
-                preload="auto"
-                className="w-full h-full object-contain"
-                style={{ display: 'none' }}
-              />
-            </div>
+            <VideoPlayer
+              onVideoRef={onVideoRef}
+              runningVideoRef={runningVideoRef}
+              offVideoRef={offVideoRef}
+              onPlayClick={handlePlay}
+              isPlaying={isPlaying}
+              isFinished={isFinished}
+            />
           </div>
         )}
       </AnimatePresence>
@@ -993,7 +972,7 @@ export default function GamePage() {
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
             {/* Row 1 - Top (slower, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(50vh - 210px)', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: 'calc(52vh - 210px)', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -1003,7 +982,7 @@ export default function GamePage() {
             </div>
             
             {/* Row 2 - Middle (normal speed, left to right) */}
-            <div className="w-full absolute" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: '52vh', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -1013,7 +992,7 @@ export default function GamePage() {
             </div>
             
             {/* Row 3 - Bottom (faster, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(50vh + 210px)', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: 'calc(52vh + 210px)', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -1119,18 +1098,6 @@ export default function GamePage() {
               
               {/* Video Container - Centered */}
               <div className="relative w-1/2 h-full flex flex-col items-center justify-center">
-                {/* Play Button - White circle, bottom left of video container */}
-                <button
-                  onClick={handlePlay}
-                  disabled={isFinished}
-                  className="fixed bottom-[12rem] left-[30rem] w-16 h-16 rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isPlaying ? (
-                    <span className="text-2xl">⏸</span>
-                  ) : (
-                    <span className="text-2xl ml-1">▶</span>
-                  )}
-                </button>
               </div>
               
               {/* Left side - Level buttons and Skip to Level button */}

@@ -32,7 +32,7 @@ const Card = ({ image, name }: CardProps) => {
           <img
             src={image}
             alt={name || "Album cover"}
-            className="absolute h-full w-full object-cover filter opacity-80 group-hover:opacity-100 transition duration-500"
+            className="absolute h-full w-full object-cover filter 0 transition duration-500"
             onError={(e) => {
               (e.target as HTMLImageElement).src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect fill='%23555' width='180' height='180'/%3E%3C/svg%3E`;
             }}
