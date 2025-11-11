@@ -88,6 +88,12 @@ export default function GamePage() {
   const gainNodeRef = useRef<GainNode | null>(null);
   const dingSoundRef = useRef<HTMLAudioElement | null>(null);
   
+  // Video refs for game screen background videos
+  const onVideoRef = useRef<HTMLVideoElement | null>(null);
+  const runningVideoRef = useRef<HTMLVideoElement | null>(null);
+  const offVideoRef = useRef<HTMLVideoElement | null>(null);
+  const videoSequenceRef = useRef<'idle' | 'on' | 'running' | 'off'>('idle');
+  
   // Game state
   const [playId, setPlayId] = useState<string | null>(null);
   const [song, setSong] = useState<Song | null>(null);
@@ -146,10 +152,12 @@ export default function GamePage() {
     if (isPlaying) {
       audioManager.current.stop();
       setIsPlaying(false);
+      stopVideoSequence();
     } else {
       audioManager.current.play(song.id, currentLevel);
       setIsPlaying(true);
       setMessage(`🎵 Playing Level ${currentLevel}...`);
+      startVideoSequence();
     }
   };
 
@@ -160,6 +168,7 @@ export default function GamePage() {
       await skipLevel(playId);
       audioManager.current.stop();
       setIsPlaying(false);
+      stopVideoSequence();
       const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
       setCurrentLevel(nextLevel);
       setRemainingAttempts(prev => prev - 1);
@@ -182,6 +191,7 @@ export default function GamePage() {
         setReveal(response.reveal || null);
         audioManager.current.stop();
         setIsPlaying(false);
+        stopVideoSequence();
         setMessage(`🎉 Correct! You guessed on Level ${currentLevel}!`);
       } else {
         setRemainingAttempts(response.remainingAttempts || 0);
@@ -191,6 +201,7 @@ export default function GamePage() {
           setReveal(response.reveal || null);
           audioManager.current.stop();
           setIsPlaying(false);
+          stopVideoSequence();
           setMessage(`❌ Out of attempts. The song was revealed.`);
         } else {
           setMessage(`❌ Incorrect. ${response.remainingAttempts} attempts left.`);
@@ -251,6 +262,9 @@ export default function GamePage() {
     setSearchResults([]);
     setShowSuggestions(false);
     
+    // Stop video sequence
+    stopVideoSequence();
+    
     // Reset carousel state
     setIsSpacebarHeld(false);
     speedMultiplierRef.current = 1;
@@ -268,46 +282,6 @@ export default function GamePage() {
     setCarouselOpacity(1);
     setShowGameScreen(false);
   };
-
-  // Function to return to carousel from game screen
-  const returnToCarousel = useCallback(() => {
-    if (!showGameScreen) return;
-    
-    // Reset game state
-    audioManager.current.clear();
-    setPlayId(null);
-    setSong(null);
-    setCurrentLevel(1);
-    setIsPlaying(false);
-    setGuess('');
-    setMessage('');
-    setIsCorrect(false);
-    setIsFinished(false);
-    setReveal(null);
-    setRemainingAttempts(3);
-    setSearchResults([]);
-    setShowSuggestions(false);
-    
-    // Reset animation sequence states
-    setShowBlackScreen(false);
-    setShowYear(false);
-    setShowViews(false);
-    setShowFullGameScreen(false);
-    
-    // Reset carousel state
-    setIsSpacebarHeld(false);
-    speedMultiplierRef.current = 1;
-    setSpeedMultiplier(1);
-    setHoldProgress(0);
-    spacebarHoldStartTimeRef.current = null;
-    
-    // Hide game screen first, then fade in carousel
-    setShowGameScreen(false);
-    // Small delay to allow game screen to start fading out
-    setTimeout(() => {
-      setCarouselOpacity(1);
-    }, 100);
-  }, [showGameScreen]);
 
   // Function to immediately cut to game screen with animation sequence
   const cutToGameScreen = useCallback(() => {
@@ -345,6 +319,141 @@ export default function GamePage() {
       }, 100);
     }, 2000);
   }, [showGameScreen, initializeGame]);
+
+  // Handle video sequence for game screen background
+  const startVideoSequence = useCallback(() => {
+    if (!onVideoRef.current || !runningVideoRef.current) return;
+    
+    // Stop all videos first
+    if (runningVideoRef.current) {
+      runningVideoRef.current.pause();
+      runningVideoRef.current.currentTime = 0;
+    }
+    if (offVideoRef.current) {
+      offVideoRef.current.pause();
+      offVideoRef.current.currentTime = 0;
+    }
+    
+    // Hide running and off videos
+    if (runningVideoRef.current) {
+      runningVideoRef.current.style.display = 'none';
+    }
+    if (offVideoRef.current) {
+      offVideoRef.current.style.display = 'none';
+    }
+    
+    // Show and play on video
+    onVideoRef.current.style.display = 'block';
+    onVideoRef.current.currentTime = 0;
+    videoSequenceRef.current = 'on';
+    
+    onVideoRef.current.play().catch(err => {
+      console.log('Error playing on video:', err);
+    });
+    
+    // When on video ends, switch to running video
+    const handleOnVideoEnd = () => {
+      if (!onVideoRef.current || !runningVideoRef.current) return;
+      
+      onVideoRef.current.style.display = 'none';
+      runningVideoRef.current.style.display = 'block';
+      runningVideoRef.current.currentTime = 0;
+      videoSequenceRef.current = 'running';
+      
+      runningVideoRef.current.play().catch(err => {
+        console.log('Error playing running video:', err);
+      });
+      
+      onVideoRef.current.removeEventListener('ended', handleOnVideoEnd);
+    };
+    
+    onVideoRef.current.addEventListener('ended', handleOnVideoEnd, { once: true });
+  }, []);
+
+  const stopVideoSequence = useCallback(() => {
+    if (!onVideoRef.current || !runningVideoRef.current || !offVideoRef.current) return;
+    
+    // Stop running video
+    if (runningVideoRef.current) {
+      runningVideoRef.current.pause();
+      runningVideoRef.current.currentTime = 0;
+      runningVideoRef.current.style.display = 'none';
+    }
+    
+    // Stop and hide on video
+    if (onVideoRef.current) {
+      onVideoRef.current.pause();
+      onVideoRef.current.currentTime = 0;
+      onVideoRef.current.style.display = 'none';
+    }
+    
+    // Show and play off video
+    offVideoRef.current.style.display = 'block';
+    offVideoRef.current.currentTime = 0;
+    videoSequenceRef.current = 'off';
+    
+    offVideoRef.current.play().catch(err => {
+      console.log('Error playing off video:', err);
+    });
+    
+    // When off video ends, show first frame of on video
+    const handleOffVideoEnd = () => {
+      if (!onVideoRef.current || !offVideoRef.current) return;
+      
+      offVideoRef.current.style.display = 'none';
+      onVideoRef.current.style.display = 'block';
+      onVideoRef.current.currentTime = 0;
+      onVideoRef.current.pause(); // Pause at first frame
+      videoSequenceRef.current = 'idle';
+      
+      offVideoRef.current.removeEventListener('ended', handleOffVideoEnd);
+    };
+    
+    offVideoRef.current.addEventListener('ended', handleOffVideoEnd, { once: true });
+  }, []);
+
+  // Function to return to carousel from game screen
+  const returnToCarousel = useCallback(() => {
+    if (!showGameScreen) return;
+    
+    // Reset game state
+    audioManager.current.clear();
+    setPlayId(null);
+    setSong(null);
+    setCurrentLevel(1);
+    setIsPlaying(false);
+    setGuess('');
+    setMessage('');
+    setIsCorrect(false);
+    setIsFinished(false);
+    setReveal(null);
+    setRemainingAttempts(3);
+    setSearchResults([]);
+    setShowSuggestions(false);
+    
+    // Stop video sequence
+    stopVideoSequence();
+    
+    // Reset animation sequence states
+    setShowBlackScreen(false);
+    setShowYear(false);
+    setShowViews(false);
+    setShowFullGameScreen(false);
+    
+    // Reset carousel state
+    setIsSpacebarHeld(false);
+    speedMultiplierRef.current = 1;
+    setSpeedMultiplier(1);
+    setHoldProgress(0);
+    spacebarHoldStartTimeRef.current = null;
+    
+    // Hide game screen first, then fade in carousel
+    setShowGameScreen(false);
+    // Small delay to allow game screen to start fading out
+    setTimeout(() => {
+      setCarouselOpacity(1);
+    }, 100);
+  }, [showGameScreen, stopVideoSequence]);
 
   // Handle speed acceleration while spacebar is held
   useEffect(() => {
@@ -711,6 +820,38 @@ export default function GamePage() {
     }
   }, [showGameScreen]);
 
+  // Initialize game screen background videos
+  useEffect(() => {
+    if (showGameScreen && showFullGameScreen) {
+      // Initialize videos to show first frame of on.mp4
+      if (onVideoRef.current) {
+        onVideoRef.current.currentTime = 0;
+        onVideoRef.current.pause();
+        onVideoRef.current.style.display = 'block';
+      }
+      if (runningVideoRef.current) {
+        runningVideoRef.current.style.display = 'none';
+      }
+      if (offVideoRef.current) {
+        offVideoRef.current.style.display = 'none';
+      }
+      videoSequenceRef.current = 'idle';
+    }
+  }, [showGameScreen, showFullGameScreen]);
+
+  // Watch for isPlaying changes to handle video sequence
+  useEffect(() => {
+    if (!showGameScreen || !showFullGameScreen) return;
+    
+    if (isPlaying && videoSequenceRef.current === 'idle') {
+      // If playing but video is idle, start the sequence
+      startVideoSequence();
+    } else if (!isPlaying && (videoSequenceRef.current === 'on' || videoSequenceRef.current === 'running')) {
+      // If not playing but video is running, stop the sequence
+      stopVideoSequence();
+    }
+  }, [isPlaying, showGameScreen, showFullGameScreen, startVideoSequence, stopVideoSequence]);
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
@@ -728,6 +869,16 @@ export default function GamePage() {
       if (dingSoundRef.current) {
         dingSoundRef.current.pause();
         dingSoundRef.current = null;
+      }
+      // Cleanup game screen videos
+      if (onVideoRef.current) {
+        onVideoRef.current.pause();
+      }
+      if (runningVideoRef.current) {
+        runningVideoRef.current.pause();
+      }
+      if (offVideoRef.current) {
+        offVideoRef.current.pause();
       }
     };
   }, []);
@@ -766,7 +917,45 @@ export default function GamePage() {
             transition={{ duration: 0.5 }}
           />
         )}
-      </AnimatePresence> 
+      </AnimatePresence>
+
+      {/* Game Screen Background Videos */}
+      <AnimatePresence>
+        {showGameScreen && (
+          <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
+            <div className="relative w-1/2 h-full flex items-center justify-center">
+              <video
+                ref={onVideoRef}
+                src="/on.mp4"
+                playsInline
+                muted
+                preload="auto"
+                className="w-full h-full object-contain"
+                style={{ display: 'none' }}
+              />
+              <video
+                ref={runningVideoRef}
+                src="/running.mp4"
+                loop
+                playsInline
+                muted
+                preload="auto"
+                className="w-full h-full object-contain"
+                style={{ display: 'none' }}
+              />
+              <video
+                ref={offVideoRef}
+                src="/off.mp4"
+                playsInline
+                muted
+                preload="auto"
+                className="w-full h-full object-contain"
+                style={{ display: 'none' }}
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
       
       {/* Three-row Carousel Container */}
       <AnimatePresence>
@@ -849,91 +1038,39 @@ export default function GamePage() {
       <AnimatePresence>
         {showGameScreen && showFullGameScreen && (
           <motion.div
-            className="w-full max-w-2xl mx-auto p-4 md:p-6 bg-gray-800 rounded-xl shadow-2xl z-50"
+            className="w-full h-full flex items-center justify-center z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            <div className="w-full h-full flex flex-col">
-                {/* Song Info */}
+            <div className="w-full h-full flex items-center justify-center relative">
+              {/* Video Container - Centered */}
+              <div className="relative w-1/2 h-full flex flex-col items-center justify-center">
+                {/* Year and Viewcount above video - white text, no box */}
                 {song && (
-                  <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-600 rounded-xl">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-300 mb-1">Release Year</p>
-                      <p className="text-xl font-bold text-white">{song.release_year}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-300 mb-1">Views</p>
-                      <p className="text-xl font-bold text-white">{song.viewcount_formatted}</p>
-                    </div>
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 text-white text-center z-10" style={{ top: '10%' }}>
+                    <p className="text-4xl font-bold">{song.release_year}</p>
+                    <p className="text-3xl font-bold mt-2">{song.viewcount_formatted}</p>
                   </div>
                 )}
                 
-                {/* Level Indicator */}
-                <div className="flex justify-center gap-2 mb-4">
-                  {[1, 2, 3].map((level) => (
-                    <div
-                      key={level}
-                      className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all ${
-                        level === currentLevel
-                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-110'
-                          : level < currentLevel
-                          ? 'bg-gray-600 text-gray-300'
-                          : 'bg-gray-800 text-gray-500'
-                      }`}
-                    >
-                      Level {level}
-                    </div>
-                  ))}
-                </div>
+                {/* Play Button - White circle, bottom left of video container */}
+                <button
+                  onClick={handlePlay}
+                  disabled={isFinished}
+                  className="absolute bottom-8 left-8 w-16 h-16 rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPlaying ? (
+                    <span className="text-2xl">⏸</span>
+                  ) : (
+                    <span className="text-2xl ml-1">▶</span>
+                  )}
+                </button>
                 
-                {/* Level Description */}
-                <p className="text-center text-gray-300 mb-4 text-xs">
-                  {currentLevel === 1 && '🥁 Drums only'}
-                  {currentLevel === 2 && '🎸 Drums + Instruments'}
-                  {currentLevel === 3 && '🎤 Full song with vocals'}
-                </p>
-                
-                {/* Play Button and Skip Song Button */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={handlePlay}
-                    disabled={isFinished}
-                    className={`flex-1 py-2 rounded-xl text-white font-bold text-base transition-all ${
-                      isFinished
-                        ? 'bg-gray-500 cursor-not-allowed'
-                        : isPlaying
-                        ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-lg'
-                        : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg'
-                    }`}
-                  >
-                    {isPlaying ? '⏸️ Pause' : '▶️ Play'}
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl text-sm transition shadow-lg"
-                  >
-                    ⏭️ Skip
-                  </button>
-                </div>
-                
-                {/* Message */}
-                {message && (
-                  <div className={`p-3 rounded-lg mb-4 text-center font-semibold text-xs ${
-                    isCorrect
-                      ? 'bg-green-800 text-green-100'
-                      : isFinished
-                      ? 'bg-red-800 text-red-100'
-                      : 'bg-blue-800 text-blue-100'
-                  }`}>
-                    {message}
-                  </div>
-                )}
-                
-                {/* Guess Input */}
+                {/* Search bar under video */}
                 {!isFinished && (
-                  <div className="space-y-3 mb-4">
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10" style={{ bottom: '5%' }}>
                     <div className="relative">
                       <input
                         type="text"
@@ -947,7 +1084,7 @@ export default function GamePage() {
                       
                       {/* Autocomplete Suggestions */}
                       {showSuggestions && searchResults.length > 0 && (
-                        <div className="absolute z-10 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                        <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                           {searchResults.map((result) => (
                             <button
                               key={result.id}
@@ -960,62 +1097,82 @@ export default function GamePage() {
                         </div>
                       )}
                     </div>
-                    
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => handleGuess()}
-                        disabled={!guess.trim()}
-                        className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 text-white font-semibold py-2 rounded-lg transition text-sm"
-                      >
-                        Submit Guess
-                      </button>
-                      
-                      {currentLevel < 3 && (
-                        <button
-                          onClick={handleSkip}
-                          className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold py-2 rounded-lg transition text-sm"
-                        >
-                          Skip to Level {currentLevel + 1}
-                        </button>
-                      )}
-                    </div>
-                    
-                    <p className="text-center text-gray-300 text-xs">
-                      Attempts: <span className="font-bold">{remainingAttempts}</span>
-                    </p>
                   </div>
                 )}
-                
-                {/* Reveal */}
-                {reveal && (
-                  <div className="bg-gray-600 p-4 rounded-xl mb-4">
-                    <h2 className="text-lg font-bold text-center mb-2 text-white">
-                      {reveal.name}
-                    </h2>
-                    <p className="text-base text-center mb-3 text-gray-200">
-                      by {reveal.artists}
-                    </p>
-                    <a
-                      href={reveal.youtube_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition text-sm"
+              </div>
+              
+              {/* Left side - Level buttons and Skip to Level button */}
+              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-4 px-8 z-10">
+                {/* Level buttons - stacked vertically, white text, white border, no fill */}
+                <div className="flex flex-col gap-3">
+                  {[1, 2, 3].map((level) => (
+                    <button
+                      key={level}
+                      className={`px-4 py-2 rounded-lg font-semibold text-sm border-2 border-white text-white bg-transparent transition-all ${
+                        level === currentLevel
+                          ? 'opacity-100 scale-110'
+                          : 'opacity-60'
+                      }`}
                     >
-                      🎥 Watch on YouTube
-                    </a>
-                  </div>
-                )}
+                      Level {level}
+                    </button>
+                  ))}
+                </div>
                 
-                {/* Next Button */}
-                {isFinished && (
+                {/* Skip to Level button - under level buttons */}
+                {currentLevel < 3 && !isFinished && (
                   <button
-                    onClick={handleNext}
-                    className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 rounded-xl text-base transition shadow-lg"
+                    onClick={handleSkip}
+                    className="px-4 py-2 rounded-lg font-semibold text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60"
                   >
-                    ▶️ Next Song
+                    Skip to Level {currentLevel + 1}
                   </button>
                 )}
               </div>
+              
+              {/* Message */}
+              {message && (
+                <div className={`absolute top-4 right-4 p-3 rounded-lg text-center font-semibold text-xs z-10 ${
+                  isCorrect
+                    ? 'bg-green-800 text-green-100'
+                    : isFinished
+                    ? 'bg-red-800 text-red-100'
+                    : 'bg-blue-800 text-blue-100'
+                }`}>
+                  {message}
+                </div>
+              )}
+              
+              {/* Reveal */}
+              {reveal && (
+                <div className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-600 p-4 rounded-xl max-w-md z-10">
+                  <h2 className="text-lg font-bold text-center mb-2 text-white">
+                    {reveal.name}
+                  </h2>
+                  <p className="text-base text-center mb-3 text-gray-200">
+                    by {reveal.artists}
+                  </p>
+                  <a
+                    href={reveal.youtube_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition text-sm"
+                  >
+                    🎥 Watch on YouTube
+                  </a>
+                </div>
+              )}
+              
+              {/* Next Button */}
+              {isFinished && (
+                <button
+                  onClick={handleNext}
+                  className="absolute bottom-4 right-4 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl text-base transition shadow-lg z-10"
+                >
+                  ▶️ Next Song
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
