@@ -108,6 +108,7 @@ export default function GamePage() {
   const [remainingAttempts, setRemainingAttempts] = useState(3);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
@@ -852,6 +853,21 @@ export default function GamePage() {
     }
   }, [isPlaying, showGameScreen, showFullGameScreen, startVideoSequence, stopVideoSequence]);
 
+  // Update playback progress while playing
+  useEffect(() => {
+    if (!isPlaying || !showGameScreen || !showFullGameScreen) {
+      setPlaybackProgress(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const progress = audioManager.current.getProgress();
+      setPlaybackProgress(progress);
+    }, 100); // Update every 100ms
+
+    return () => clearInterval(interval);
+  }, [isPlaying, showGameScreen, showFullGameScreen]);
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
@@ -884,24 +900,24 @@ export default function GamePage() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-[#0E0E10]">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
       {/* Static GIF Background */}
-      {/* <AnimatePresence>
+      <AnimatePresence>
         {!showGameScreen && (
           <motion.img
             src="/static.gif"
             alt="Static background"
             className="absolute inset-0 w-full h-full object-cover z-0"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0. }}
+            animate={{ opacity: 0.05 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           />
         )}
-      </AnimatePresence> */}
+      </AnimatePresence>
       
       {/* Overlay Video Background */}
-       <AnimatePresence>
+       {/* <AnimatePresence>
         {!showGameScreen && (
           <motion.video
             ref={overlayVideoRef}
@@ -917,7 +933,7 @@ export default function GamePage() {
             transition={{ duration: 0.5 }}
           />
         )}
-      </AnimatePresence>
+      </AnimatePresence> */}
 
       {/* Game Screen Background Videos */}
       <AnimatePresence>
@@ -956,6 +972,16 @@ export default function GamePage() {
           </div>
         )}
       </AnimatePresence>
+      
+      {/* Progress Bar - Full width at bottom of screen */}
+      {showGameScreen && isPlaying && (
+        <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-700 z-30">
+          <div 
+            className="h-full bg-white transition-all duration-100"
+            style={{ width: `${playbackProgress * 100}%` }}
+          />
+        </div>
+      )}
       
       {/* Three-row Carousel Container */}
       <AnimatePresence>
@@ -1045,32 +1071,9 @@ export default function GamePage() {
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
             <div className="w-full h-full flex items-center justify-center relative">
-              {/* Video Container - Centered */}
-              <div className="relative w-1/2 h-full flex flex-col items-center justify-center">
-                {/* Year and Viewcount above video - white text, no box */}
-                {song && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 text-white text-center z-10" style={{ top: '10%' }}>
-                    <p className="text-4xl font-bold">{song.release_year}</p>
-                    <p className="text-3xl font-bold mt-2">{song.viewcount_formatted}</p>
-                  </div>
-                )}
-                
-                {/* Play Button - White circle, bottom left of video container */}
-                <button
-                  onClick={handlePlay}
-                  disabled={isFinished}
-                  className="absolute bottom-8 left-8 w-16 h-16 rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isPlaying ? (
-                    <span className="text-2xl">⏸</span>
-                  ) : (
-                    <span className="text-2xl ml-1">▶</span>
-                  )}
-                </button>
-                
-                {/* Search bar under video */}
-                {!isFinished && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10" style={{ bottom: '5%' }}>
+              {/* Search bar at top of screen */}
+              {!isFinished && (
+                <div className="fixed top-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10">
                     <div className="relative">
                       <input
                         type="text"
@@ -1099,6 +1102,35 @@ export default function GamePage() {
                     </div>
                   </div>
                 )}
+              
+              {/* Year - Top left corner */}
+              {song && (
+                <div className="fixed top-8 left-8 text-white z-10">
+                  <p className="text-4xl font-bold">{song.release_year}</p>
+                </div>
+              )}
+              
+              {/* Views - Top right corner */}
+              {song && (
+                <div className="fixed top-8 right-8 text-white z-10">
+                  <p className="text-4xl font-bold">{song.viewcount_formatted}</p>
+                </div>
+              )}
+              
+              {/* Video Container - Centered */}
+              <div className="relative w-1/2 h-full flex flex-col items-center justify-center">
+                {/* Play Button - White circle, bottom left of video container */}
+                <button
+                  onClick={handlePlay}
+                  disabled={isFinished}
+                  className="fixed bottom-[12rem] left-[30rem] w-16 h-16 rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPlaying ? (
+                    <span className="text-2xl">⏸</span>
+                  ) : (
+                    <span className="text-2xl ml-1">▶</span>
+                  )}
+                </button>
               </div>
               
               {/* Left side - Level buttons and Skip to Level button */}

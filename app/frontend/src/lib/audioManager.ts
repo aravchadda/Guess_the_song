@@ -14,6 +14,8 @@ export class AudioManager {
   private buffers: Map<string, AudioBuffer> = new Map();
   private currentSource: AudioBufferSourceNode | null = null;
   private isPlaying: boolean = false;
+  private playbackStartTime: number = 0;
+  private currentBuffer: AudioBuffer | null = null;
   
   /**
    * Initialize audio context (requires user gesture)
@@ -95,6 +97,8 @@ export class AudioManager {
     // Start playback
     source.start(0);
     this.currentSource = source;
+    this.currentBuffer = buffer;
+    this.playbackStartTime = this.audioContext.currentTime;
     this.isPlaying = true;
   }
   
@@ -111,6 +115,28 @@ export class AudioManager {
       this.currentSource = null;
     }
     this.isPlaying = false;
+    this.playbackStartTime = 0;
+    this.currentBuffer = null;
+  }
+  
+  /**
+   * Get current playback progress (0-1)
+   */
+  getProgress(): number {
+    if (!this.isPlaying || !this.currentBuffer || !this.audioContext) {
+      return 0;
+    }
+    
+    const elapsed = this.audioContext.currentTime - this.playbackStartTime;
+    const duration = this.currentBuffer.duration;
+    return Math.min(elapsed / duration, 1);
+  }
+  
+  /**
+   * Get current audio duration in seconds
+   */
+  getDuration(): number {
+    return this.currentBuffer?.duration || 0;
   }
   
   /**
