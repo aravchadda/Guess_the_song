@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 import time
 
 # Your existing API key
-YOUTUBE_API_KEY = 'AIzaSyDRcsUa8vFdemu9DSzr4sPGHSimpK5ePiY'
+YOUTUBE_API_KEY = 'AIzaSyBcjt0f5foEt6YW9yiBbAWFzQsqhNiTh-E'
 
 def search_youtube_by_title(song_title, artist_name):
     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
@@ -51,60 +51,16 @@ def search_youtube_by_title(song_title, artist_name):
 # Read the CSV
 df = pd.read_csv('spotify_playlist_tracks.csv')
 
-# Strip whitespace from column names
+# Strip whitespace from column names and data
 df.columns = df.columns.str.strip()
-
-# Strip whitespace from data values (song names and artists)
 df['Song_Name'] = df['Song_Name'].astype(str).str.strip()
 df['Artists'] = df['Artists'].astype(str).str.strip()
 
-# Initialize ViewCount column if it doesn't exist
-if 'ViewCount' not in df.columns:
-    df['ViewCount'] = None
-
-# Convert ViewCount to numeric, handling any non-numeric values
+# Convert ViewCount to numeric
 df['ViewCount'] = pd.to_numeric(df['ViewCount'], errors='coerce')
 
-print(f"\n📊 Total songs in dataset: {len(df)}")
-print(f"📊 Songs with existing view counts: {df['ViewCount'].notna().sum()}")
-print(f"📊 Songs needing view count updates: {df['ViewCount'].isna().sum()}")
-
-# ============================================
-# STEP 1: UPDATE VIEW COUNTS FOR ALL SONGS
-# ============================================
-print("\n" + "="*60)
-print("STEP 1: Updating view counts for all songs...")
-print("="*60)
-
-total_songs = len(df)
-for idx, (index, row) in enumerate(df.iterrows(), 1):
-    song = row['Song_Name']
-    artist = row['Artists']
-    current_views = row['ViewCount']
-    
-    print(f"\n[{idx}/{total_songs}] Searching YouTube for: {song} by {artist}")
-    
-    try:
-        link, views = search_youtube_by_title(song, artist)
-        
-        if link and views:
-            df.at[index, 'YouTube_Link'] = link
-            df.at[index, 'ViewCount'] = views
-            if pd.notna(current_views):
-                change = views - current_views
-                print(f"✅ Updated: {link} with {views:,} views (change: {change:+,})")
-            else:
-                print(f"✅ Found: {link} with {views:,} views")
-        else:
-            print(f"❌ No video found for {song}")
-    except Exception as e:
-        print(f"❌ Error with {song}: {e}")
-    
-    time.sleep(1)  # To avoid hitting rate limits
-
-# Save intermediate results
-df.to_csv('spotify_playlist_tracks.csv', index=False)
-print("\n💾 Intermediate results saved!")
+print(f"\n📊 Total songs: {len(df)}")
+print(f"📊 Songs with view counts: {df['ViewCount'].notna().sum()}")
 
 # ============================================
 # STEP 2: SORT BY VIEW COUNT AND PROCESS 100 LEAST VIEWED
@@ -152,6 +108,9 @@ for idx, (index, row) in enumerate(bottom_100.iterrows(), 1):
             indices_to_remove.append(index)
     except Exception as e:
         print(f"❌ Error with {song}: {e}")
+        if "quota" in str(e).lower():
+            print("⚠️  YouTube API quota exceeded. Please wait and try again later.")
+            break
         indices_to_remove.append(index)
     
     time.sleep(1)  # To avoid hitting rate limits
@@ -165,3 +124,4 @@ if indices_to_remove:
 df.to_csv('spotify_playlist_tracks.csv', index=False)
 print("\n✅ Done! Final results saved to spotify_playlist_tracks.csv")
 print(f"📊 Final dataset contains {len(df)} songs")
+
