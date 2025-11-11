@@ -1058,7 +1058,7 @@ export default function GamePage() {
             </div>
             
             {/* Row 2 - Middle (normal speed, left to right) */}
-            <div className="w-full absolute" style={{ top: '52vh', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -1069,7 +1069,7 @@ export default function GamePage() {
             
             {/* Row 3 - Bottom (faster, right to left) */}
             <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 12vw, 250px))', transform: 'translateY(-50%)' }}>
-            <div className="w-full absolute" style={{ top: 'calc(52vh + 210px)', transform: 'translateY(-50%)' }}>
+          
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -1077,6 +1077,7 @@ export default function GamePage() {
                 speedMultiplierRef={speedMultiplierRef}
               />
             </div>
+          
           </motion.div>
         )}
       </AnimatePresence>
