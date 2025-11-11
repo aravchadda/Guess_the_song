@@ -110,6 +110,7 @@ export default function GamePage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [hasGuessedOnLevel, setHasGuessedOnLevel] = useState(false);
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
@@ -121,6 +122,7 @@ export default function GamePage() {
       
       // Reset level to 1
       setCurrentLevel(1);
+      setHasGuessedOnLevel(false);
       
       // Initialize audio context
       await audioManager.current.initialize();
@@ -140,28 +142,13 @@ export default function GamePage() {
       );
       
       setIsLoading(false);
-      setMessage('🎧 Audio loaded! Press Play to start.');
+      setMessage('');
     } catch (error: any) {
       console.error('Error initializing game:', error);
       setMessage(`❌ Error: ${error.message}`);
       setIsLoading(false);
     }
   }, [gameMode]);
-
-  const handlePlay = () => {
-    if (!song) return;
-    
-    if (isPlaying) {
-      audioManager.current.stop();
-      setIsPlaying(false);
-      stopVideoSequence();
-    } else {
-      audioManager.current.play(song.id, currentLevel);
-      setIsPlaying(true);
-      setMessage(`🎵 Playing Level ${currentLevel}...`);
-      startVideoSequence();
-    }
-  };
 
   const handleSkip = async () => {
     if (!playId || currentLevel === 3 || isFinished) return;
@@ -173,8 +160,9 @@ export default function GamePage() {
       stopVideoSequence();
       const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
       setCurrentLevel(nextLevel);
+      setHasGuessedOnLevel(false);
       setRemainingAttempts(prev => prev - 1);
-      setMessage(`⏭️ Skipped to Level ${nextLevel}`);
+      setMessage('');
     } catch (error: any) {
       setMessage(`❌ ${error.message}`);
     }
@@ -182,7 +170,7 @@ export default function GamePage() {
 
   const handleGuess = async (guessText?: string) => {
     const finalGuess = guessText || guess;
-    if (!playId || !finalGuess.trim() || isFinished) return;
+    if (!playId || !finalGuess.trim() || isFinished || hasGuessedOnLevel) return;
     
     try {
       const response = await submitGuess(playId, finalGuess);
@@ -194,19 +182,34 @@ export default function GamePage() {
         audioManager.current.stop();
         setIsPlaying(false);
         stopVideoSequence();
-        setMessage(`🎉 Correct! You guessed on Level ${currentLevel}!`);
+        setMessage('');
       } else {
+        // Wrong guess - automatically skip to next level
+        setHasGuessedOnLevel(true);
         setRemainingAttempts(response.remainingAttempts || 0);
         
-        if (response.remainingAttempts === 0) {
+        if (currentLevel < 3) {
+          // Auto-skip to next level
+          try {
+            await skipLevel(playId);
+            audioManager.current.stop();
+            setIsPlaying(false);
+            stopVideoSequence();
+            const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
+            setCurrentLevel(nextLevel);
+            setHasGuessedOnLevel(false);
+            setMessage('');
+          } catch (error: any) {
+            setMessage(`❌ ${error.message}`);
+          }
+        } else {
+          // Last level - game over
           setIsFinished(true);
           setReveal(response.reveal || null);
           audioManager.current.stop();
           setIsPlaying(false);
           stopVideoSequence();
-          setMessage(`❌ Out of attempts. The song was revealed.`);
-        } else {
-          setMessage(`❌ Incorrect. ${response.remainingAttempts} attempts left.`);
+          setMessage('');
         }
       }
       
@@ -263,6 +266,7 @@ export default function GamePage() {
     setRemainingAttempts(3);
     setSearchResults([]);
     setShowSuggestions(false);
+    setHasGuessedOnLevel(false);
     
     // Stop video sequence
     stopVideoSequence();
@@ -414,6 +418,22 @@ export default function GamePage() {
     offVideoRef.current.addEventListener('ended', handleOffVideoEnd, { once: true });
   }, []);
 
+  const handlePlay = useCallback(() => {
+    if (!song) return;
+    
+    if (isPlaying) {
+      audioManager.current.stop();
+      setIsPlaying(false);
+      stopVideoSequence();
+    } else {
+      audioManager.current.play(song.id, currentLevel);
+      setIsPlaying(true);
+      const levelNames = ['', 'drums', 'Instruments', 'vocals'];
+      setMessage(`🎵 Playing ${levelNames[currentLevel]}...`);
+      startVideoSequence();
+    }
+  }, [song, isPlaying, currentLevel, stopVideoSequence, startVideoSequence]);
+
   // Function to return to carousel from game screen
   const returnToCarousel = useCallback(() => {
     if (!showGameScreen) return;
@@ -432,6 +452,7 @@ export default function GamePage() {
     setRemainingAttempts(3);
     setSearchResults([]);
     setShowSuggestions(false);
+    setHasGuessedOnLevel(false);
     
     // Stop video sequence
     stopVideoSequence();
@@ -940,14 +961,69 @@ export default function GamePage() {
       <AnimatePresence>
         {showGameScreen && (
           <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
-            <VideoPlayer
-              onVideoRef={onVideoRef}
-              runningVideoRef={runningVideoRef}
-              offVideoRef={offVideoRef}
-              onPlayClick={handlePlay}
-              isPlaying={isPlaying}
-              isFinished={isFinished}
-            />
+            <div 
+              className="relative h-full flex items-center justify-center"
+              style={{
+                width: 'min(85vw, 50%)',
+              }}
+            >
+              <video
+                ref={onVideoRef}
+                src="/on.mp4"
+                playsInline
+                muted
+                preload="auto"
+                className="w-full h-full object-contain"
+                style={{ display: 'none' }}
+              />
+              <video
+                ref={runningVideoRef}
+                src="/running.mp4"
+                loop
+                playsInline
+                muted
+                preload="auto"
+                className="w-full h-full object-contain"
+                style={{ display: 'none' }}
+              />
+              <video
+                ref={offVideoRef}
+                src="/off.mp4"
+                playsInline
+                muted
+                preload="auto"
+                className="w-full h-full object-contain"
+                style={{ display: 'none' }}
+              />
+              {/* Play Button - White circle, bottom left of video container */}
+              {showFullGameScreen && (
+                <button
+                  onClick={handlePlay}
+                  disabled={isFinished}
+                  className="absolute bottom-[26.5%] left-[17.6%] rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    width: 'clamp(2.5rem, 4vw, 4.5rem)',
+                    height: 'clamp(2.5rem, 4vw, 4.5rem)',
+                  }}
+                >
+                  {isPlaying ? (
+                    <span 
+                      className="ml-1"
+                      style={{
+                        fontSize: 'clamp(1rem, 2vw, 1.5rem)',
+                      }}
+                    >⏸</span>
+                  ) : (
+                    <span 
+                      className="ml-1"
+                      style={{
+                        fontSize: 'clamp(1rem, 2vw, 1.5rem)',
+                      }}
+                    >▶</span>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </AnimatePresence>
@@ -972,7 +1048,7 @@ export default function GamePage() {
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
             {/* Row 1 - Top (slower, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(52vh - 210px)', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 12vw, 250px))', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -992,6 +1068,7 @@ export default function GamePage() {
             </div>
             
             {/* Row 3 - Bottom (faster, right to left) */}
+            <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 12vw, 250px))', transform: 'translateY(-50%)' }}>
             <div className="w-full absolute" style={{ top: 'calc(52vh + 210px)', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
@@ -1018,10 +1095,10 @@ export default function GamePage() {
             {song && showYear && (
               <motion.div
                 className="absolute"
-                style={{ top: 'calc(50% - 100px)' }}
+                style={{ top: 'calc(50% - clamp(60px, 8vh, 100px))' }}
                
               >
-                <p className="text-8xl font-bold text-white">{song.release_year}</p>
+                <p className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white">{song.release_year}</p>
               </motion.div>
             )}
             
@@ -1029,10 +1106,10 @@ export default function GamePage() {
             {song && showViews && (
               <motion.div
                 className="absolute"
-                style={{ top: 'calc(50% + 10px)' }}
+                style={{ top: 'calc(50% + clamp(5px, 1vh, 10px))' }}
                
               >
-                <p className="text-6xl font-bold text-[#e2dcde]">{song.viewcount_formatted}</p>
+                <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#e2dcde]">{song.viewcount_formatted}</p>
               </motion.div>
             )}
           </motion.div>
@@ -1051,8 +1128,8 @@ export default function GamePage() {
           >
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
-              {!isFinished && (
-                <div className="fixed top-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10">
+              {!isFinished && !isCorrect && (
+                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10">
                     <div className="relative">
                       <input
                         type="text"
@@ -1061,7 +1138,7 @@ export default function GamePage() {
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
                         className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
-                        disabled={isFinished}
+                        disabled={isFinished || hasGuessedOnLevel}
                       />
                       
                       {/* Autocomplete Suggestions */}
@@ -1082,94 +1159,112 @@ export default function GamePage() {
                   </div>
                 )}
               
+              {/* Song name and YouTube link at top when correct */}
+              {isCorrect && reveal && (
+                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2">
+                  <h2 className="text-white text-xl sm:text-2xl md:text-3xl font-bold text-center">
+                    {reveal.name}
+                  </h2>
+                  <a
+                    href={reveal.youtube_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white text-sm sm:text-base hover:underline"
+                  >
+                    Watch on YouTube
+                  </a>
+                </div>
+              )}
+              
               {/* Year - Top left corner */}
               {song && (
-                <div className="fixed top-8 left-8 text-white z-10">
-                  <p className="text-4xl font-bold">{song.release_year}</p>
+                <div className="fixed top-4 sm:top-6 md:top-8 left-4 sm:left-6 md:left-8 text-white z-10">
+                  <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{song.release_year}</p>
                 </div>
               )}
               
               {/* Views - Top right corner */}
               {song && (
-                <div className="fixed top-8 right-8 text-white z-10">
-                  <p className="text-4xl font-bold">{song.viewcount_formatted}</p>
+                <div className="fixed top-4 sm:top-6 md:top-8 right-4 sm:right-6 md:right-8 text-white z-10">
+                  <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{song.viewcount_formatted}</p>
                 </div>
               )}
               
               {/* Video Container - Centered */}
-              <div className="relative w-1/2 h-full flex flex-col items-center justify-center">
+              <div 
+                className="relative h-full flex flex-col items-center justify-center"
+                style={{
+                  width: 'min(85vw, 50%)',
+                }}
+              >
               </div>
               
               {/* Left side - Level buttons and Skip to Level button */}
-              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-4 px-8 z-10">
+              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-2 sm:gap-3 md:gap-4 px-2 sm:px-4 md:px-6 lg:px-8 z-10">
                 {/* Level buttons - stacked vertically, white text, white border, no fill */}
-                <div className="flex flex-col gap-3">
-                  {[1, 2, 3].map((level) => (
-                    <button
-                      key={level}
-                      className={`px-4 py-2 rounded-lg font-semibold text-sm border-2 border-white text-white bg-transparent transition-all ${
-                        level === currentLevel
-                          ? 'opacity-100 scale-110'
-                          : 'opacity-60'
-                      }`}
-                    >
-                      Level {level}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-2 sm:gap-3">
+                  {[
+                    { level: 1, name: 'drums' },
+                    { level: 2, name: 'Instruments' },
+                    { level: 3, name: 'vocals' }
+                  ].map(({ level, name }) => {
+                    // Determine if button should be lit up
+                    const shouldLightUp = 
+                      currentLevel === 1 && level === 1 || // Drums: only drums lights up
+                      currentLevel === 2 && level <= 2 ||   // Instruments: light up drums and instruments
+                      currentLevel === 3 && level <= 3;    // Vocals: light up all three
+                    
+                    return (
+                      <button
+                        key={level}
+                        className={`px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all ${
+                          shouldLightUp
+                            ? 'opacity-100 scale-110'
+                            : 'opacity-60'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
                 </div>
                 
                 {/* Skip to Level button - under level buttons */}
                 {currentLevel < 3 && !isFinished && (
                   <button
                     onClick={handleSkip}
-                    className="px-4 py-2 rounded-lg font-semibold text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60"
+                    className="px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60"
                   >
-                    Skip to Level {currentLevel + 1}
+                    Skip to {currentLevel === 1 ? 'Instruments' : 'vocals'}
                   </button>
                 )}
               </div>
               
-              {/* Message */}
-              {message && (
-                <div className={`absolute top-4 right-4 p-3 rounded-lg text-center font-semibold text-xs z-10 ${
-                  isCorrect
-                    ? 'bg-green-800 text-green-100'
-                    : isFinished
-                    ? 'bg-red-800 text-red-100'
-                    : 'bg-blue-800 text-blue-100'
-                }`}>
-                  {message}
-                </div>
-              )}
-              
-              {/* Reveal */}
-              {reveal && (
-                <div className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-600 p-4 rounded-xl max-w-md z-10">
-                  <h2 className="text-lg font-bold text-center mb-2 text-white">
+              {/* Reveal - only show when finished but not correct (game over) */}
+              {reveal && !isCorrect && (
+                <div className="absolute top-1/2 right-2 sm:right-4 transform -translate-y-1/2 bg-gray-600 p-3 sm:p-4 rounded-xl max-w-[calc(100%-1rem)] sm:max-w-md z-10">
+                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-center mb-2 text-white break-words">
                     {reveal.name}
                   </h2>
-                  <p className="text-base text-center mb-3 text-gray-200">
+                  <p className="text-xs sm:text-sm md:text-base text-center mb-3 text-gray-200 break-words">
                     by {reveal.artists}
                   </p>
                   <a
                     href={reveal.youtube_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition text-sm"
+                    className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition text-xs sm:text-sm"
                   >
-                    🎥 Watch on YouTube
+                    Watch on YouTube
                   </a>
                 </div>
               )}
               
-              {/* Next Button */}
-              {isFinished && (
-                <button
-                  onClick={handleNext}
-                  className="absolute bottom-4 right-4 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-xl text-base transition shadow-lg z-10"
-                >
-                  ▶️ Next Song
-                </button>
+              {/* Correct text on right side */}
+              {isCorrect && (
+                <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 right-4 sm:right-6 md:right-8 text-white font-bold text-sm sm:text-base z-10">
+                  Correct
+                </div>
               )}
             </div>
           </motion.div>
@@ -1178,7 +1273,7 @@ export default function GamePage() {
 
       {/* Spacebar Button - Always visible */}
       <motion.div
-        className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50"
+        className="fixed bottom-4 sm:bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full px-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
         transition={{ duration: 0.3 }}
