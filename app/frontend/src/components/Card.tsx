@@ -13,7 +13,12 @@ const Card = ({ image, name }: CardProps) => {
 
   return (
     <motion.div
-      className="relative overflow-hidden h-[180px] min-w-[180px] md:h-[200px] md:min-w-[200px] rounded-sm flex justify-center items-center group hover:cursor-pointer transition-all duration-500"
+      className="relative overflow-hidden rounded-sm flex justify-center items-center group hover:cursor-pointer transition-all duration-500"
+      style={{
+        height: 'clamp(60px, 12vw, 200px)',
+        minWidth: 'clamp(60px, 12vw, 200px)',
+        width: 'clamp(60px, 12vw, 200px)',
+      }}
       onHoverStart={() => setShowOverlay(true)}
       onHoverEnd={() => setShowOverlay(false)}
     >

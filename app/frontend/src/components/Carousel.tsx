@@ -110,7 +110,12 @@ const Carousel = React.memo(({
   }, [width, speed]);
 
   return (
-    <div className="relative h-[200px] md:h-[220px] overflow-x-hidden flex-1 w-full max-w-full">
+    <div 
+      className="relative overflow-x-hidden flex-1 w-full max-w-full"
+      style={{
+        height: 'clamp(60px, 12vw, 220px)',
+      }}
+    >
       <motion.div
         className="absolute left-0 flex  md:gap-4 items-center"
         style={{ x: xTranslation }}

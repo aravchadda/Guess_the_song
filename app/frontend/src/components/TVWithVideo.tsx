@@ -11,7 +11,11 @@ interface TVWithVideoProps {
 export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video" }: TVWithVideoProps) {
   return (
     <motion.div
-      className="relative w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[50vw] max-w-2xl"
+      className="relative"
+      style={{
+        width: 'clamp(200px, 50vw, 800px)',
+        maxWidth: '800px',
+      }}
       animate={{
         scale: hold ? 1.5 : 1,
       }}

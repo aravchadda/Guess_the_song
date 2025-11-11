@@ -184,14 +184,19 @@ export default function Home(): JSX.Element {
 
       {/* --- TEXT CONTENT --- */}
       <motion.div
-        className="relative z-20 text-center px-4 sm:px-6 text-white left-0 md:-left-[43px]"
+        className="absolute z-20 text-center px-4 sm:px-6 text-white"
+        style={{
+          left: 'calc(50% - clamp(200px, 50vw, 800px) * 0.394)',
+          top: 'calc(50% - clamp(200px, 50vw, 800px) * 0.15)',
+          transform: 'translate(-50%, -50%)',
+        }}
         animate={{
           opacity: hold ? 0 : 1,
           scale: hold ? 0.95 : 1,
         }}
         transition={{ duration: 0.8, ease: "easeInOut" }}
       >
-        <h1 className="text-4xl sm:text-5xl md:text-8xl lg:text-8xl font-extrabold mb-4 select-none flex justify-center flex-wrap">
+        <h1 className="font-extrabold mb-2 select-none flex justify-center flex-wrap" style={{ fontSize: 'clamp(1.8rem, 7.2vw, 7.2rem)' }}>
           {titleLetters.map((letter, i) => (
             <motion.span
               key={i}
@@ -208,43 +213,51 @@ export default function Home(): JSX.Element {
         </h1>
 
         <motion.p
-          className="text-gray-300 mb-6 sm:mb-8 md:mb-10 text-xs sm:text-sm md:text-base px-4"
+          className="text-gray-300 mb-2 px-4"
+          style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1rem)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
         >
-          An interactive journey through ten years of sound.
+          Test how wide your music pallete is.
         </motion.p>
-
-        {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
-        {!zoomed && !triggered && (
-          <motion.div
-            className="flex flex-col items-center space-y-4 sm:space-y-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.6 }}
-          >
-            <p className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
-              Hold{" "}
-              <motion.button
-                className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
-                style={{ minWidth: '80px' }}
-              >
-                <span className="relative z-10">SPACE</span>
-                <motion.span
-                  className="absolute inset-0 rounded border-2 border-[#4A75AC]"
-                  style={{
-                    clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
-                  }}
-                  transition={{ duration: 0.1, ease: "linear" }}
-                />
-              </motion.button>{" "}
-              for <strong>2 seconds</strong> to charge and enter.
-            </p>
-          </motion.div>
-        )}
       </motion.div>
 
+      {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
+      {!zoomed && !triggered && (
+        <motion.div
+          className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2"
+          style={{
+            top: 'calc(50% + clamp(200px, 50vw, 800px) * 0.45)',
+            transform: 'translateX(-50%)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.6 }}
+        >
+          <p className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
+            Hold{" "}
+            <motion.button
+              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
+              style={{ 
+                minWidth: 'clamp(60px, 12vw, 100px)',
+                padding: 'clamp(0.125rem, 0.5vw, 0.375rem) clamp(0.75rem, 2vw, 1.5rem)',
+                fontSize: 'clamp(0.625rem, 1.2vw, 0.75rem)',
+              }}
+            >
+              <span className="relative z-10">SPACE</span>
+              <motion.span
+                className="absolute inset-0 rounded border-2 border-[#4A75AC]"
+                style={{
+                  clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
+                }}
+                transition={{ duration: 0.1, ease: "linear" }}
+              />
+            </motion.button>{" "}
+            for <strong>2 seconds</strong> to charge and enter.
+          </p>
+        </motion.div>
+      )}
 
 <AnimatePresence>
   {zoomed && (
@@ -253,20 +266,17 @@ export default function Home(): JSX.Element {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.5 }}
-      className="absolute z-30 flex flex-col items-end gap-6 sm:gap-8"
-      style={{
-        right: 'calc(50% + 37.5vw - 50.25vw)',
-        top: '50%',
-        transform: 'translate(0, calc(-50% - 2.5rem)) scale(1.5)',
-        transformOrigin: 'right center',
-      }}
+      className="absolute z-30 flex flex-col items-center sm:items-end gap-4 sm:gap-6 md:gap-8 right-4 sm:right-8 md:right-auto md:[right:calc(50%+37.5vw-50.25vw)] top-1/2 -translate-y-1/2"
     >
       <Link href="/game?mode=all" className="block">
         <motion.div
           whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
-          style={menuButtonStyle}
+          className="text-white font-bold cursor-pointer select-none"
+          style={{
+            ...menuButtonStyle,
+            fontSize: 'clamp(1rem, 3vw, 2.5rem)',
+          }}
         >
           PLAY ALL
         </motion.div>
@@ -275,8 +285,11 @@ export default function Home(): JSX.Element {
         <motion.div
           whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
-          style={menuButtonStyle}
+          className="text-white font-bold cursor-pointer select-none"
+          style={{
+            ...menuButtonStyle,
+            fontSize: 'clamp(1rem, 3vw, 2.5rem)',
+          }}
         >
           PLAY POST 00s
         </motion.div>
@@ -285,8 +298,11 @@ export default function Home(): JSX.Element {
         <motion.div
           whileHover={{ x: -10, scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold cursor-pointer select-none"
-          style={menuButtonStyle}
+          className="text-white font-bold cursor-pointer select-none"
+          style={{
+            ...menuButtonStyle,
+            fontSize: 'clamp(1rem, 3vw, 2.5rem)',
+          }}
         >
           USER STATS
         </motion.div>
