@@ -124,7 +124,7 @@ const Carousel = React.memo(({
         ))}
       </motion.div>
       {/* Fade Overlay */}
-      <div className="absolute inset-0 z-10 w-full pointer-events-none bg-[linear-gradient(to_right,_black_0%,_rgba(0,0,0,0.35)_40%,_rgba(0,0,0,0)_60%,_rgba(0,0,0,0.35)_80%,_black_100%)]" />
+      <div className="absolute inset-0 z-10 w-full pointer-events-none bg-[linear-gradient(to_right,_#0E0E10_0%,_rgba(14,14,16,0.35)_40%,_rgba(0,0,0,0)_60%,_rgba(14,14,16,0.35)_80%,_#0E0E10_100%)]" />
     </div>
   );
 }, (prevProps, nextProps) => {

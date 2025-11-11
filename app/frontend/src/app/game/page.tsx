@@ -79,6 +79,7 @@ export default function GamePage() {
   const speedMultiplierRef = useRef(1); // Ref for smooth animation updates without re-renders
   const lastUIUpdateTimeRef = useRef<number>(0); // For throttling UI updates
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
+  const overlayVideoRef = useRef<HTMLVideoElement | null>(null);
   const selectedVideoRef = useRef<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
@@ -326,11 +327,15 @@ export default function GamePage() {
     setTimeout(() => {
       setShowViews(true);
       // Play ding sound when views appear (both year and views are now visible)
+     
+    }, 1200);
+
+    setTimeout(() => {
       if (dingSoundRef.current) {
         dingSoundRef.current.currentTime = 0;
         dingSoundRef.current.play().catch(err => console.log('Error playing ding sound:', err));
       }
-    }, 800);
+    }, 300);
     
     setTimeout(() => {
       setShowFullGameScreen(true);
@@ -338,7 +343,7 @@ export default function GamePage() {
       setTimeout(() => {
         setShowBlackScreen(false);
       }, 100);
-    }, 1300);
+    }, 2000);
   }, [showGameScreen, initializeGame]);
 
   // Handle speed acceleration while spacebar is held
@@ -682,6 +687,9 @@ export default function GamePage() {
   // Initialize ding sound
   useEffect(() => {
     const audio = new Audio('/ding.m4a');
+    audio.preload = 'auto';
+    // Preload the audio to reduce delay
+    audio.load();
     dingSoundRef.current = audio;
     
     return () => {
@@ -691,6 +699,17 @@ export default function GamePage() {
       }
     };
   }, []);
+
+  // Control overlay video based on game screen state
+  useEffect(() => {
+    if (overlayVideoRef.current) {
+      if (!showGameScreen) {
+        overlayVideoRef.current.play().catch(console.error);
+      } else {
+        overlayVideoRef.current.pause();
+      }
+    }
+  }, [showGameScreen]);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -703,6 +722,9 @@ export default function GamePage() {
           backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
         }
       }
+      if (overlayVideoRef.current) {
+        overlayVideoRef.current.pause();
+      }
       if (dingSoundRef.current) {
         dingSoundRef.current.pause();
         dingSoundRef.current = null;
@@ -711,12 +733,46 @@ export default function GamePage() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-[#0E0E10]">
+      {/* Static GIF Background */}
+      {/* <AnimatePresence>
+        {!showGameScreen && (
+          <motion.img
+            src="/static.gif"
+            alt="Static background"
+            className="absolute inset-0 w-full h-full object-cover z-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0. }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          />
+        )}
+      </AnimatePresence> */}
+      
+      {/* Overlay Video Background */}
+       <AnimatePresence>
+        {!showGameScreen && (
+          <motion.video
+            ref={overlayVideoRef}
+            src="/overlay.mp4"
+            loop
+            muted
+            playsInline
+            autoPlay
+            className="absolute inset-0 w-full h-full object-cover z-[1]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          />
+        )}
+      </AnimatePresence> 
+      
       {/* Three-row Carousel Container */}
       <AnimatePresence>
         {!showGameScreen && (
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center"
+            className="absolute inset-0 flex flex-col items-center justify-center z-10"
             initial={false}
             animate={{ opacity: carouselOpacity }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -758,7 +814,7 @@ export default function GamePage() {
       <AnimatePresence>
         {showBlackScreen && (
           <motion.div
-            className="fixed inset-0 bg-black z-40 flex items-center justify-center"
+            className="fixed inset-0 bg-[#0E0E10] z-40 flex items-center justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
