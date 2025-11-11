@@ -79,7 +79,10 @@ export default function GamePage() {
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const selectedVideoRef = useRef<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const filterRef = useRef<BiquadFilterNode | null>(null);
+  const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const highShelfFilterRef = useRef<BiquadFilterNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   
   // Game state
   const [playId, setPlayId] = useState<string | null>(null);
@@ -340,9 +343,18 @@ export default function GamePage() {
       setSpeedMultiplier(1);
       setHoldProgress(0);
       spacebarHoldStartTimeRef.current = null;
-      // Reset filter to muffled when spacebar is released
-      if (filterRef.current && audioCtxRef.current) {
-        filterRef.current.frequency.setValueAtTime(1000, audioCtxRef.current.currentTime);
+      // Reset filters to play lows by default when spacebar is released
+      if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        const now = ctx.currentTime;
+        lowpassFilterRef.current.frequency.setValueAtTime(500, now);
+        highpassFilterRef.current.frequency.setValueAtTime(20, now); // Very low to allow all frequencies
+        highShelfFilterRef.current.gain.setValueAtTime(0, now); // No high boost
+        gainNodeRef.current.gain.setValueAtTime(1, now); // Normal gain
+      }
+      // Reset video volume to default
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.volume = 0.3;
       }
       return;
     }
@@ -360,9 +372,18 @@ export default function GamePage() {
         setSpeedMultiplier(1);
         setHoldProgress(0);
         animationFrameRef.current = null;
-        // Reset filter to muffled
-        if (filterRef.current && audioCtxRef.current) {
-          filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
+        // Reset filters to play lows by default
+        if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
+          const ctx = audioCtxRef.current;
+          const now = ctx.currentTime;
+          lowpassFilterRef.current.frequency.setValueAtTime(500, now);
+          highpassFilterRef.current.frequency.setValueAtTime(20, now);
+          highShelfFilterRef.current.gain.setValueAtTime(0, now);
+          gainNodeRef.current.gain.setValueAtTime(1, now);
+        }
+        // Reset video volume to default
+        if (backgroundVideoRef.current) {
+          backgroundVideoRef.current.volume = 0.3;
         }
         return;
       }
@@ -378,14 +399,37 @@ export default function GamePage() {
       
       setSpeedMultiplier(newMultiplier);
       
-      // Update audio filter: reduce muffling as spacebar is held
-      // Filter frequency goes from 1000Hz (muffled) to 20000Hz (clear)
-      if (filterRef.current && audioCtxRef.current) {
-        const targetFreq = 1000 + progress * 19000; // 1000Hz to 20000Hz
-        filterRef.current.frequency.setValueAtTime(
-          Math.min(targetFreq, 20000),
-          audioCtxRef.current.currentTime
+      // Update audio filters: transition from lows only to everything with amplified highs
+      // Lowpass filter increases to allow all frequencies
+      // High shelf filter boosts highs while keeping all frequencies
+      if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        const now = ctx.currentTime;
+        
+        // Lowpass filter: increase from 500Hz (lows only) to 20000Hz (all frequencies)
+        const lowpassFreq = 500 + progress * 19500; // 500Hz to 20000Hz
+        lowpassFilterRef.current.frequency.setValueAtTime(
+          Math.min(lowpassFreq, 20000),
+          now
         );
+        
+        // Highpass filter: keep at 20Hz (allows all frequencies to pass through)
+        highpassFilterRef.current.frequency.setValueAtTime(20, now);
+        
+        // High shelf filter: boost highs - escalate from 0dB to +12dB
+        // This amplifies highs while keeping all frequencies
+        const highShelfGain = progress * 12; // 0dB to 12dB boost
+        highShelfFilterRef.current.gain.setValueAtTime(highShelfGain, now);
+        
+        // Gain: slight overall amplification - escalate from 1x to 1.5x
+        const gainValue = 1 + progress * 0.5; // 1x to 1.5x amplification
+        gainNodeRef.current.gain.setValueAtTime(gainValue, now);
+      }
+      
+      // Increase video volume as filter goes higher - escalate from 0.3 to 0.8
+      if (backgroundVideoRef.current) {
+        const volumeValue = 0.3 + progress * 0.5; // 0.3 to 0.8 (30% to 80%)
+        backgroundVideoRef.current.volume = Math.min(volumeValue, 1);
       }
 
       animationFrameRef.current = requestAnimationFrame(updateSpeed);
@@ -458,10 +502,19 @@ export default function GamePage() {
         spacebarHoldStartTimeRef.current = null;
         setIsSpacebarHeld(false);
         
-        // Reset filter to muffled when spacebar is released
-        if (filterRef.current && audioCtxRef.current) {
-          filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
-        }
+      // Reset filters to play lows by default when spacebar is released
+      if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        const now = ctx.currentTime;
+        lowpassFilterRef.current.frequency.setValueAtTime(500, now);
+        highpassFilterRef.current.frequency.setValueAtTime(20, now);
+        highShelfFilterRef.current.gain.setValueAtTime(0, now);
+        gainNodeRef.current.gain.setValueAtTime(1, now);
+      }
+      // Reset video volume to default
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.volume = 0.3;
+      }
         
         // Only transition to game screen if held for 2 seconds
         if (hasHeldFor2Seconds) {
@@ -496,7 +549,10 @@ export default function GamePage() {
       if (audioCtxRef.current) {
         audioCtxRef.current.close();
         audioCtxRef.current = null;
-        filterRef.current = null;
+        lowpassFilterRef.current = null;
+        highpassFilterRef.current = null;
+        highShelfFilterRef.current = null;
+        gainNodeRef.current = null;
       }
       
       // Select a random video
@@ -513,18 +569,44 @@ export default function GamePage() {
       document.body.appendChild(video);
       backgroundVideoRef.current = video;
       
-      // Setup audio context & filter for muffled sound
+      // Setup audio context & filters for low frequencies by default
       const setupAudio = async () => {
         try {
           const audioCtx = new AudioContext();
           const source = audioCtx.createMediaElementSource(video);
-          const filter = audioCtx.createBiquadFilter();
-          filter.type = "lowpass";
-          filter.frequency.value = 1000; // Start muffled (low-pass at 500Hz)
-          source.connect(filter);
-          filter.connect(audioCtx.destination);
+          
+          // Lowpass filter: allows lows (default at 500Hz to play lows only)
+          const lowpassFilter = audioCtx.createBiquadFilter();
+          lowpassFilter.type = "lowpass";
+          lowpassFilter.frequency.value = 500; // Start with lows only
+          
+          // Highpass filter: keep at 20Hz to allow all frequencies (won't filter anything)
+          const highpassFilter = audioCtx.createBiquadFilter();
+          highpassFilter.type = "highpass";
+          highpassFilter.frequency.value = 20; // Very low (allows all frequencies)
+          
+          // High shelf filter: will boost highs when spacebar is held
+          const highShelfFilter = audioCtx.createBiquadFilter();
+          highShelfFilter.type = "highshelf";
+          highShelfFilter.frequency.value = 2000; // Boost frequencies above 2000Hz
+          highShelfFilter.gain.value = 0; // No boost initially
+          
+          // Gain node: slight overall amplification
+          const gainNode = audioCtx.createGain();
+          gainNode.gain.value = 1; // Normal gain by default
+          
+          // Connect: source -> lowpass -> highpass -> high shelf -> gain -> destination
+          source.connect(lowpassFilter);
+          lowpassFilter.connect(highpassFilter);
+          highpassFilter.connect(highShelfFilter);
+          highShelfFilter.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          
           audioCtxRef.current = audioCtx;
-          filterRef.current = filter;
+          lowpassFilterRef.current = lowpassFilter;
+          highpassFilterRef.current = highpassFilter;
+          highShelfFilterRef.current = highShelfFilter;
+          gainNodeRef.current = gainNode;
           
           // Resume audio context and play video
           await audioCtx.resume();
@@ -540,9 +622,14 @@ export default function GamePage() {
       if (backgroundVideoRef.current) {
         backgroundVideoRef.current.pause();
       }
-      // Reset filter to muffled when game screen is shown
-      if (filterRef.current && audioCtxRef.current) {
-        filterRef.current.frequency.setValueAtTime(1000, audioCtxRef.current.currentTime);
+      // Reset filters to play lows by default when game screen is shown
+      if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
+        const ctx = audioCtxRef.current;
+        const now = ctx.currentTime;
+        lowpassFilterRef.current.frequency.setValueAtTime(500, now);
+        highpassFilterRef.current.frequency.setValueAtTime(20, now);
+        highShelfFilterRef.current.gain.setValueAtTime(0, now);
+        gainNodeRef.current.gain.setValueAtTime(1, now);
       }
     }
     
@@ -561,7 +648,10 @@ export default function GamePage() {
       if (audioCtxRef.current) {
         audioCtxRef.current.close();
         audioCtxRef.current = null;
-        filterRef.current = null;
+        lowpassFilterRef.current = null;
+        highpassFilterRef.current = null;
+        highShelfFilterRef.current = null;
+        gainNodeRef.current = null;
       }
     };
   }, [showGameScreen]);
