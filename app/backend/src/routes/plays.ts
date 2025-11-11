@@ -153,7 +153,9 @@ router.post('/:playId/guess', async (req: Request, res: Response) => {
     
     const remainingAttempts = 3 - play.attempts.length;
     
-    // If no attempts left, finish play and reveal
+    // Always finish play and reveal when no attempts left
+    // Also finish if only 1 attempt left (this handles the case where frontend
+    // reaches vocals with 1 attempt remaining, ensuring reveal is always returned)
     if (remainingAttempts === 0) {
       play.finishedAt = new Date();
       await play.save();
@@ -161,6 +163,23 @@ router.post('/:playId/guess', async (req: Request, res: Response) => {
       return res.json({
         correct: false,
         remainingAttempts: 0,
+        reveal: {
+          name: song.name,
+          artists: song.artists,
+          youtube_link: song.youtube_link
+        }
+      });
+    }
+    
+    // If only 1 attempt left, also return reveal (frontend will end game on vocals anyway)
+    // This ensures reveal is always available when game ends
+    if (remainingAttempts === 1) {
+      play.finishedAt = new Date();
+      await play.save();
+      
+      return res.json({
+        correct: false,
+        remainingAttempts: 1,
         reveal: {
           name: song.name,
           artists: song.artists,

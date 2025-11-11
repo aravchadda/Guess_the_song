@@ -106,14 +106,30 @@ export default function GamePage() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [reveal, setReveal] = useState<GuessResponse['reveal'] | null>(null);
-  const [remainingAttempts, setRemainingAttempts] = useState(3);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
-  const [hasGuessedOnLevel, setHasGuessedOnLevel] = useState(false);
+  const [lastGuessedLevel, setLastGuessedLevel] = useState<1 | 2 | 3 | null>(null);
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
+
+  // Update document attribute when game screen is shown/hidden
+  useEffect(() => {
+    if (showGameScreen) {
+      document.documentElement.setAttribute('data-game-screen', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-game-screen');
+    }
+  }, [showGameScreen]);
+
+  // Reset lastGuessedLevel whenever level changes to ensure submissions work on new level
+  useEffect(() => {
+    if (showGameScreen && !isFinished) {
+      setLastGuessedLevel(null);
+      setReveal(null); // Clear reveal when moving to new level
+    }
+  }, [currentLevel, showGameScreen, isFinished]);
 
   // Initialize game
   const initializeGame = useCallback(async () => {
@@ -122,7 +138,8 @@ export default function GamePage() {
       
       // Reset level to 1
       setCurrentLevel(1);
-      setHasGuessedOnLevel(false);
+      setLastGuessedLevel(null);
+      setReveal(null);
       
       // Initialize audio context
       await audioManager.current.initialize();
@@ -132,7 +149,6 @@ export default function GamePage() {
       
       setPlayId(playResponse.playId);
       setSong(playResponse.song);
-      setRemainingAttempts(3);
       
       // Preload audio
       await audioManager.current.preloadAudio(
@@ -160,8 +176,8 @@ export default function GamePage() {
       stopVideoSequence();
       const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
       setCurrentLevel(nextLevel);
-      setHasGuessedOnLevel(false);
-      setRemainingAttempts(prev => prev - 1);
+      setLastGuessedLevel(null);
+      setReveal(null);
       setMessage('');
     } catch (error: any) {
       setMessage(`❌ ${error.message}`);
@@ -170,12 +186,21 @@ export default function GamePage() {
 
   const handleGuess = async (guessText?: string) => {
     const finalGuess = guessText || guess;
-    if (!playId || !finalGuess.trim() || isFinished || hasGuessedOnLevel) return;
+    
+    // Validation checks
+    if (!playId || !finalGuess.trim() || isFinished) return;
+    if (lastGuessedLevel === currentLevel) return; // Already guessed on this level
     
     try {
-      const response = await submitGuess(playId, finalGuess);
+      const response = await submitGuess(playId, finalGuess.trim());
+      
+      // Mark that we've guessed on this level
+      setLastGuessedLevel(currentLevel);
+      setGuess('');
+      setShowSuggestions(false);
       
       if (response.correct) {
+        // Correct guess - game won
         setIsCorrect(true);
         setIsFinished(true);
         setReveal(response.reveal || null);
@@ -184,39 +209,70 @@ export default function GamePage() {
         stopVideoSequence();
         setMessage('');
       } else {
-        // Wrong guess - automatically skip to next level
-        setHasGuessedOnLevel(true);
-        setRemainingAttempts(response.remainingAttempts || 0);
-        
-        if (currentLevel < 3) {
-          // Auto-skip to next level
-          try {
-            await skipLevel(playId);
-            audioManager.current.stop();
-            setIsPlaying(false);
-            stopVideoSequence();
-            const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
-            setCurrentLevel(nextLevel);
-            setHasGuessedOnLevel(false);
-            setMessage('');
-          } catch (error: any) {
-            setMessage(`❌ ${error.message}`);
-          }
-        } else {
-          // Last level - game over
+        // Wrong guess
+        if (currentLevel === 3) {
+          // Wrong on last level (vocals) - game over
+          console.log('Wrong guess on vocals - ending game', { reveal: response.reveal });
+          setIsCorrect(false);
           setIsFinished(true);
-          setReveal(response.reveal || null);
+          // Use reveal from response if available, otherwise we'll need to fetch it
+          if (response.reveal) {
+            setReveal(response.reveal);
+          } else {
+            // Backend didn't return reveal (game might already be finished)
+            // Try to get reveal by making the backend finish the game
+            // For now, set reveal to null - the game will still end
+            setReveal(null);
+          }
           audioManager.current.stop();
           setIsPlaying(false);
           stopVideoSequence();
           setMessage('');
+        } else {
+          // Wrong on drums or instruments - skip to next level
+          // Ignore backend's reveal/finish state - we control the flow based on level
+          try {
+            await skipLevel(playId);
+          } catch (error: any) {
+            // Skip might fail if backend finished the game, but we still want to continue
+            // Just log the error and continue with level progression
+            console.log('Skip failed (game may be finished on backend), but continuing to next level:', error.message);
+          }
+          
+          // Always advance to next level regardless of skip success/failure
+          audioManager.current.stop();
+          setIsPlaying(false);
+          stopVideoSequence();
+          
+          const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
+          setCurrentLevel(nextLevel);
+          setLastGuessedLevel(null); // Reset for new level
+          setReveal(null); // Clear any reveal (ignore backend's reveal)
+          setMessage('');
         }
       }
-      
-      setGuess('');
-      setShowSuggestions(false);
     } catch (error: any) {
-      setMessage(`❌ ${error.message}`);
+      console.error('Error submitting guess:', error);
+      const errorMessage = error.message || 'Failed to submit guess';
+      setLastGuessedLevel(null);
+      
+      // If we're on vocals and get an error, end the game
+      if (currentLevel === 3) {
+        console.log('Error on vocals - ending game anyway', { errorMessage });
+        setIsCorrect(false);
+        setIsFinished(true);
+        setReveal(null); // Can't get reveal if API failed
+        audioManager.current.stop();
+        setIsPlaying(false);
+        stopVideoSequence();
+        setMessage('');
+      } else if (errorMessage.includes('finished') || errorMessage.includes('Maximum attempts')) {
+        // Game finished on backend - end it
+        setIsFinished(true);
+        setMessage(`❌ ${errorMessage}`);
+      } else {
+        setMessage(`❌ ${errorMessage}`);
+      }
     }
   };
 
@@ -263,10 +319,9 @@ export default function GamePage() {
     setIsCorrect(false);
     setIsFinished(false);
     setReveal(null);
-    setRemainingAttempts(3);
     setSearchResults([]);
     setShowSuggestions(false);
-    setHasGuessedOnLevel(false);
+    setLastGuessedLevel(null);
     
     // Stop video sequence
     stopVideoSequence();
@@ -449,10 +504,9 @@ export default function GamePage() {
     setIsCorrect(false);
     setIsFinished(false);
     setReveal(null);
-    setRemainingAttempts(3);
     setSearchResults([]);
     setShowSuggestions(false);
-    setHasGuessedOnLevel(false);
+    setLastGuessedLevel(null);
     
     // Stop video sequence
     stopVideoSequence();
@@ -1095,8 +1149,8 @@ export default function GamePage() {
             {/* Year Animation */}
             {song && showYear && (
               <motion.div
-                className="absolute"
-                style={{ top: 'calc(50% - clamp(60px, 8vh, 100px))' }}
+                className="absolute left-1/2 transform -translate-x-1/2"
+                style={{ top: 'calc(50% - clamp(80px, 12vh, 140px))' }}
                
               >
                 <p className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white">{song.release_year}</p>
@@ -1106,8 +1160,8 @@ export default function GamePage() {
             {/* Views Animation */}
             {song && showViews && (
               <motion.div
-                className="absolute"
-                style={{ top: 'calc(50% + clamp(5px, 1vh, 10px))' }}
+                className="absolute left-1/2 transform -translate-x-1/2"
+                style={{ top: 'calc(50% + clamp(40px, 6vh, 80px))' }}
                
               >
                 <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#e2dcde]">{song.viewcount_formatted}</p>
@@ -1139,7 +1193,7 @@ export default function GamePage() {
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
                         className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
-                        disabled={isFinished || hasGuessedOnLevel}
+                        disabled={isFinished || lastGuessedLevel === currentLevel}
                       />
                       
                       {/* Autocomplete Suggestions */}
@@ -1174,8 +1228,25 @@ export default function GamePage() {
                   >
                     Watch on YouTube
                   </a>
-                </div>
-              )}
+                  </div>
+                )}
+              
+              {/* Song name and YouTube link at top when game over (wrong on vocals) */}
+              {isFinished && !isCorrect && reveal && (
+                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2">
+                  <h2 className="text-red-500 text-xl sm:text-2xl md:text-3xl font-bold text-center">
+                    {reveal.name}
+                  </h2>
+                  <a
+                    href={reveal.youtube_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-500 text-sm sm:text-base hover:underline"
+                  >
+                    Watch on YouTube
+                  </a>
+                  </div>
+                )}
               
               {/* Year - Top left corner */}
               {song && (
@@ -1216,16 +1287,16 @@ export default function GamePage() {
                       currentLevel === 3 && level <= 3;    // Vocals: light up all three
                     
                     return (
-                      <button
-                        key={level}
-                        className={`px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all ${
+                    <button
+                      key={level}
+                      className={`px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all ${
                           shouldLightUp
-                            ? 'opacity-100 scale-110'
-                            : 'opacity-60'
-                        }`}
-                      >
+                          ? 'opacity-100 scale-110'
+                          : 'opacity-60'
+                      }`}
+                    >
                         {name}
-                      </button>
+                    </button>
                     );
                   })}
                 </div>
@@ -1241,25 +1312,6 @@ export default function GamePage() {
                 )}
               </div>
               
-              {/* Reveal - only show when finished but not correct (game over) */}
-              {reveal && !isCorrect && (
-                <div className="absolute top-1/2 right-2 sm:right-4 transform -translate-y-1/2 bg-gray-600 p-3 sm:p-4 rounded-xl max-w-[calc(100%-1rem)] sm:max-w-md z-10">
-                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-center mb-2 text-white break-words">
-                    {reveal.name}
-                  </h2>
-                  <p className="text-xs sm:text-sm md:text-base text-center mb-3 text-gray-200 break-words">
-                    by {reveal.artists}
-                  </p>
-                  <a
-                    href={reveal.youtube_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition text-xs sm:text-sm"
-                  >
-                    Watch on YouTube
-                  </a>
-                </div>
-              )}
               
               {/* Correct text on right side */}
               {isCorrect && (

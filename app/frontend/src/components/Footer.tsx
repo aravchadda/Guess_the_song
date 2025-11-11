@@ -13,25 +13,25 @@ export default function Footer() {
       {/* Social links - Bottom right */}
       <div className="flex items-center gap-4">
         <a 
-          href="https://twitter.com" 
+          href="https://www.linkedin.com/in/aravchadda/" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-white text-sm hover:opacity-80 transition-opacity"
-          aria-label="Twitter"
+          aria-label="Arav"
         >
-          Twitter
+          Arav
         </a>
         <a 
-          href="https://instagram.com" 
+          href="https://www.linkedin.com/in/suprotiv-moitra-07aa2521b/" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-white text-sm hover:opacity-80 transition-opacity"
-          aria-label="Instagram"
+          aria-label="Supro"
         >
-          Instagram
+          Supro
         </a>
         <a 
-          href="https://github.com" 
+          href="https://github.com/aravchadda/Guess_the_song" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-white text-sm hover:opacity-80 transition-opacity"

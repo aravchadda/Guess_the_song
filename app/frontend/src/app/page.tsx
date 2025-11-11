@@ -226,9 +226,9 @@ export default function Home(): JSX.Element {
       {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
       {!zoomed && !triggered && (
         <motion.div
-          className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2"
+          className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2 w-full max-w-[90vw]"
           style={{
-            top: 'calc(50% + clamp(200px, 50vw, 800px) * 0.45)',
+            bottom: 'clamp(1rem, 5vh, 3rem)',
             transform: 'translateX(-50%)',
           }}
           initial={{ opacity: 0 }}
