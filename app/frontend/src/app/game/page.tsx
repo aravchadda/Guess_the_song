@@ -394,7 +394,7 @@ export default function GamePage() {
       setHoldProgress(progress);
       
       // Accelerate: speed increases linearly and reaches max value in 2 seconds
-      const maxMultiplier = 5;
+      const maxMultiplier = 6;
       const newMultiplier = 1 + (maxMultiplier - 1) * progress; // Linear from 1 to maxMultiplier over 2 seconds
       
       setSpeedMultiplier(newMultiplier);
