@@ -106,7 +106,7 @@ const Carousel = ({
   return (
     <div className="relative h-[200px] md:h-[220px] overflow-x-hidden flex-1 w-full max-w-full">
       <motion.div
-        className="absolute left-0 flex gap-12 md:gap-16 items-center"
+        className="absolute left-0 flex  md:gap-4 items-center"
         style={{ x: xTranslation }}
         ref={ref}
       

@@ -24,21 +24,21 @@ const albumCovers = [
   '917K5P11YnL.jpg',
   '91eh6ApLnzL.jpg',
   '91L9kVW4nmL.jpg',
-  'ab67616d000082c10a80b890ab011362fd7aa73b.jpeg',
-  'ab67616d000082c114b55ab26f7463fd059d9f34.jpeg',
-  'ab67616d000082c121ebf49b3292c3f0f575f0f5.jpeg',
-  'ab67616d000082c134ef8f7d06cf2fc2146f420a.jpeg',
-  'ab67616d000082c140c5b0a60c587bd0cee5ee0c.jpeg',
-  'ab67616d000082c143511b8c20112757edddc7ba.jpeg',
-  'ab67616d000082c151c02a77d09dfcd53c8676d0.jpeg',
-  'ab67616d000082c155598d2d52fc249fa166a3ca.jpeg',
-  'ab67616d000082c156072fea6785a3ad2d24237c.jpeg',
-  'ab67616d000082c18399047ff71200928f5b6508.jpeg',
-  'ab67616d000082c1d8a68fd3e16f7ff6932b47d9.jpeg',
-  'ab67616d000082c1e44963b8bb127552ac761873.jpeg',
-  'ab67616d000082c1e45161990e83649071399525.jpeg',
-  'ab67616d000082c1e6d489d359c546fea254f440.jpeg',
-  'ab67616d000082c1fbc71c99f9c1296c56dd51b6.jpeg',
+  'ab67616d000082c10a80b890ab011362fd7aa73b.jpg',
+  'ab67616d000082c114b55ab26f7463fd059d9f34.jpg',
+  'ab67616d000082c121ebf49b3292c3f0f575f0f5.jpg',
+  'ab67616d000082c134ef8f7d06cf2fc2146f420a.jpg',
+  'ab67616d000082c140c5b0a60c587bd0cee5ee0c.jpg',
+  'ab67616d000082c143511b8c20112757edddc7ba.jpg',
+  'ab67616d000082c151c02a77d09dfcd53c8676d0.jpg',
+  'ab67616d000082c155598d2d52fc249fa166a3ca.jpg',
+  'ab67616d000082c156072fea6785a3ad2d24237c.jpg',
+  'ab67616d000082c18399047ff71200928f5b6508.jpg',
+  'ab67616d000082c1d8a68fd3e16f7ff6932b47d9.jpg',
+  'ab67616d000082c1e44963b8bb127552ac761873.jpg',
+  'ab67616d000082c1e45161990e83649071399525.jpg',
+  'ab67616d000082c1e6d489d359c546fea254f440.jpg',
+  'ab67616d000082c1fbc71c99f9c1296c56dd51b6.jpg',
   'B1TlPSY5bKS.jpg',
   'coldplay.jpg',
   'halloffame.jpg',
@@ -49,6 +49,17 @@ const carouselItems = albumCovers.map(cover => ({
   image: `/album-covers/${encodeURIComponent(cover)}`,
   name: cover,
 }));
+
+// List of videos for background audio
+const videos = [
+  "/ariana.MOV",
+  "/bad-bunny.MOV",
+  "/kendrick.MOV",
+  "/single-ladies.MOV",
+  "/royals.MOV",
+  "/hard-times.MOV",
+  "/tame-impala.MOV",
+];
 
 export default function GamePage() {
   const searchParams = useSearchParams();
@@ -65,6 +76,10 @@ export default function GamePage() {
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
+  const selectedVideoRef = useRef<string | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const filterRef = useRef<BiquadFilterNode | null>(null);
   
   // Game state
   const [playId, setPlayId] = useState<string | null>(null);
@@ -88,6 +103,9 @@ export default function GamePage() {
   const initializeGame = useCallback(async () => {
     try {
       setIsLoading(true);
+      
+      // Reset level to 1
+      setCurrentLevel(1);
       
       // Initialize audio context
       await audioManager.current.initialize();
@@ -247,6 +265,21 @@ export default function GamePage() {
   const returnToCarousel = useCallback(() => {
     if (!showGameScreen) return;
     
+    // Reset game state
+    audioManager.current.clear();
+    setPlayId(null);
+    setSong(null);
+    setCurrentLevel(1);
+    setIsPlaying(false);
+    setGuess('');
+    setMessage('');
+    setIsCorrect(false);
+    setIsFinished(false);
+    setReveal(null);
+    setRemainingAttempts(3);
+    setSearchResults([]);
+    setShowSuggestions(false);
+    
     // Reset animation sequence states
     setShowBlackScreen(false);
     setShowYear(false);
@@ -307,6 +340,10 @@ export default function GamePage() {
       setSpeedMultiplier(1);
       setHoldProgress(0);
       spacebarHoldStartTimeRef.current = null;
+      // Reset filter to muffled when spacebar is released
+      if (filterRef.current && audioCtxRef.current) {
+        filterRef.current.frequency.setValueAtTime(1000, audioCtxRef.current.currentTime);
+      }
       return;
     }
 
@@ -323,6 +360,10 @@ export default function GamePage() {
         setSpeedMultiplier(1);
         setHoldProgress(0);
         animationFrameRef.current = null;
+        // Reset filter to muffled
+        if (filterRef.current && audioCtxRef.current) {
+          filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
+        }
         return;
       }
 
@@ -348,6 +389,16 @@ export default function GamePage() {
       // Update hold progress: reaches 100% after 2 seconds
       const progress = Math.min(elapsed / 2, 1);
       setHoldProgress(progress);
+      
+      // Update audio filter: reduce muffling as spacebar is held
+      // Filter frequency goes from 500Hz (muffled) to 20000Hz (clear)
+      if (filterRef.current && audioCtxRef.current) {
+        const targetFreq = 1000 + progress * 19500; // 500Hz to 20000Hz
+        filterRef.current.frequency.setValueAtTime(
+          Math.min(targetFreq, 20000),
+          audioCtxRef.current.currentTime
+        );
+      }
 
       animationFrameRef.current = requestAnimationFrame(updateSpeed);
     };
@@ -367,6 +418,18 @@ export default function GamePage() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
+        // Don't trigger if user is typing in an input field
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.getAttribute('contenteditable') === 'true'
+        );
+        
+        if (isInputFocused) {
+          return; // Allow normal spacebar behavior in input fields
+        }
+        
         e.preventDefault();
         
         if (showGameScreen) {
@@ -381,6 +444,18 @@ export default function GamePage() {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !showGameScreen && isSpacebarHeld) {
+        // Don't trigger if user is typing in an input field
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.getAttribute('contenteditable') === 'true'
+        );
+        
+        if (isInputFocused) {
+          return; // Allow normal spacebar behavior in input fields
+        }
+        
         e.preventDefault();
         
         // Check if 2 seconds have passed
@@ -394,6 +469,11 @@ export default function GamePage() {
         setHoldProgress(0);
         spacebarHoldStartTimeRef.current = null;
         setIsSpacebarHeld(false);
+        
+        // Reset filter to muffled when spacebar is released
+        if (filterRef.current && audioCtxRef.current) {
+          filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
+        }
         
         // Only transition to game screen if held for 2 seconds
         if (hasHeldFor2Seconds) {
@@ -410,10 +490,105 @@ export default function GamePage() {
     };
   }, [showGameScreen, isSpacebarHeld, cutToGameScreen, returnToCarousel]);
 
+  // Play random video audio when carousel is visible
+  useEffect(() => {
+    if (!showGameScreen) {
+      // Stop existing video if transitioning back to carousel
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.pause();
+        backgroundVideoRef.current.src = '';
+        if (backgroundVideoRef.current.parentNode) {
+          backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
+        }
+        backgroundVideoRef.current = null;
+        selectedVideoRef.current = null;
+      }
+      
+      // Cleanup audio context if exists
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close();
+        audioCtxRef.current = null;
+        filterRef.current = null;
+      }
+      
+      // Select a random video
+      const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+      selectedVideoRef.current = randomVideo;
+      
+      // Create video element for audio playback
+      const video = document.createElement('video');
+      video.src = randomVideo;
+      video.loop = true;
+      video.muted = false;
+      video.volume = 0.3; // Set volume to 30%
+      video.style.display = 'none';
+      document.body.appendChild(video);
+      backgroundVideoRef.current = video;
+      
+      // Setup audio context & filter for muffled sound
+      const setupAudio = async () => {
+        try {
+          const audioCtx = new AudioContext();
+          const source = audioCtx.createMediaElementSource(video);
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = 1000; // Start muffled (low-pass at 500Hz)
+          source.connect(filter);
+          filter.connect(audioCtx.destination);
+          audioCtxRef.current = audioCtx;
+          filterRef.current = filter;
+          
+          // Resume audio context and play video
+          await audioCtx.resume();
+          await video.play();
+        } catch (err) {
+          console.log('Error setting up audio:', err);
+        }
+      };
+      
+      setupAudio();
+    } else {
+      // Stop video when game screen is shown
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.pause();
+      }
+      // Reset filter to muffled when game screen is shown
+      if (filterRef.current && audioCtxRef.current) {
+        filterRef.current.frequency.setValueAtTime(1000, audioCtxRef.current.currentTime);
+      }
+    }
+    
+    return () => {
+      // Cleanup video when carousel is hidden or component unmounts
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.pause();
+        backgroundVideoRef.current.src = '';
+        if (backgroundVideoRef.current.parentNode) {
+          backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
+        }
+        backgroundVideoRef.current = null;
+        selectedVideoRef.current = null;
+      }
+      // Cleanup audio context
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close();
+        audioCtxRef.current = null;
+        filterRef.current = null;
+      }
+    };
+  }, [showGameScreen]);
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
       audioManager.current.stop();
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.pause();
+        backgroundVideoRef.current.src = '';
+        if (backgroundVideoRef.current.parentNode) {
+          backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
+        }
+      }
     };
   }, []);
 
@@ -506,15 +681,7 @@ export default function GamePage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            {isLoading ? (
-              <div className="text-center py-8 flex-1 flex items-center justify-center">
-                <div>
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
-                  <p className="text-white text-lg">Loading audio...</p>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full h-full flex flex-col">
+            <div className="w-full h-full flex flex-col">
                 {/* Song Info */}
                 {song && (
                   <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-600 rounded-xl">
@@ -675,7 +842,6 @@ export default function GamePage() {
                   </button>
                 )}
               </div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
