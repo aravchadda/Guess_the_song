@@ -76,6 +76,8 @@ export default function GamePage() {
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const speedMultiplierRef = useRef(1); // Ref for smooth animation updates without re-renders
+  const lastUIUpdateTimeRef = useRef<number>(0); // For throttling UI updates
   const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
   const selectedVideoRef = useRef<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -83,6 +85,7 @@ export default function GamePage() {
   const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const highShelfFilterRef = useRef<BiquadFilterNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
+  const dingSoundRef = useRef<HTMLAudioElement | null>(null);
   
   // Game state
   const [playId, setPlayId] = useState<string | null>(null);
@@ -249,6 +252,7 @@ export default function GamePage() {
     
     // Reset carousel state
     setIsSpacebarHeld(false);
+    speedMultiplierRef.current = 1;
     setSpeedMultiplier(1);
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
@@ -291,6 +295,7 @@ export default function GamePage() {
     
     // Reset carousel state
     setIsSpacebarHeld(false);
+    speedMultiplierRef.current = 1;
     setSpeedMultiplier(1);
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
@@ -320,6 +325,11 @@ export default function GamePage() {
     
     setTimeout(() => {
       setShowViews(true);
+      // Play ding sound when views appear (both year and views are now visible)
+      if (dingSoundRef.current) {
+        dingSoundRef.current.currentTime = 0;
+        dingSoundRef.current.play().catch(err => console.log('Error playing ding sound:', err));
+      }
     }, 800);
     
     setTimeout(() => {
@@ -340,8 +350,10 @@ export default function GamePage() {
     }
 
     if (!isSpacebarHeld || showGameScreen) {
+      speedMultiplierRef.current = 1;
       setSpeedMultiplier(1);
       setHoldProgress(0);
+      lastUIUpdateTimeRef.current = 0;
       spacebarHoldStartTimeRef.current = null;
       // Reset filters to play lows by default when spacebar is released
       if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
@@ -369,8 +381,10 @@ export default function GamePage() {
 
     const updateSpeed = () => {
       if (!isRunning || !isSpacebarHeld || showGameScreen || spacebarHoldStartTimeRef.current === null) {
+        speedMultiplierRef.current = 1;
         setSpeedMultiplier(1);
         setHoldProgress(0);
+        lastUIUpdateTimeRef.current = 0;
         animationFrameRef.current = null;
         // Reset filters to play lows by default
         if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
@@ -391,13 +405,21 @@ export default function GamePage() {
       const elapsed = (Date.now() - startTime) / 1000; // in seconds
       // Update hold progress: reaches 100% after 2 seconds
       const progress = Math.min(elapsed / 2, 1);
-      setHoldProgress(progress);
       
       // Accelerate: speed increases linearly and reaches max value in 2 seconds
-      const maxMultiplier = 6;
+      const maxMultiplier = 15;
       const newMultiplier = 1 + (maxMultiplier - 1) * progress; // Linear from 1 to maxMultiplier over 2 seconds
       
-      setSpeedMultiplier(newMultiplier);
+      // Update ref immediately for smooth animation (no re-render)
+      speedMultiplierRef.current = newMultiplier;
+      
+      // Throttle state updates for UI (progress bar) - only update every 100ms to reduce re-renders
+      const now = Date.now();
+      if (now - lastUIUpdateTimeRef.current >= 100) {
+        setHoldProgress(progress);
+        setSpeedMultiplier(newMultiplier);
+        lastUIUpdateTimeRef.current = now;
+      }
       
       // Update audio filters: transition from lows only to everything with amplified highs
       // Lowpass filter increases to allow all frequencies
@@ -497,6 +519,7 @@ export default function GamePage() {
         const hasHeldFor2Seconds = elapsed >= 2;
         
         // Reset speed and progress
+        speedMultiplierRef.current = 1;
         setSpeedMultiplier(1);
         setHoldProgress(0);
         spacebarHoldStartTimeRef.current = null;
@@ -656,6 +679,19 @@ export default function GamePage() {
     };
   }, [showGameScreen]);
 
+  // Initialize ding sound
+  useEffect(() => {
+    const audio = new Audio('/ding.m4a');
+    dingSoundRef.current = audio;
+    
+    return () => {
+      if (dingSoundRef.current) {
+        dingSoundRef.current.pause();
+        dingSoundRef.current = null;
+      }
+    };
+  }, []);
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
@@ -666,6 +702,10 @@ export default function GamePage() {
         if (backgroundVideoRef.current.parentNode) {
           backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
         }
+      }
+      if (dingSoundRef.current) {
+        dingSoundRef.current.pause();
+        dingSoundRef.current = null;
       }
     };
   }, []);
@@ -687,7 +727,7 @@ export default function GamePage() {
                 direction="left" 
                 items={carouselItems} 
                 speed={1.5}
-                speedMultiplier={speedMultiplier}
+                speedMultiplierRef={speedMultiplierRef}
               />
             </div>
             
@@ -697,7 +737,7 @@ export default function GamePage() {
                 direction="left" 
                 items={carouselItems} 
                 speed={1}
-                speedMultiplier={speedMultiplier}
+                speedMultiplierRef={speedMultiplierRef}
               />
             </div>
             
@@ -707,7 +747,7 @@ export default function GamePage() {
                 direction="left" 
                 items={carouselItems} 
                 speed={0.7}
-                speedMultiplier={speedMultiplier}
+                speedMultiplierRef={speedMultiplierRef}
               />
             </div>
           </motion.div>
