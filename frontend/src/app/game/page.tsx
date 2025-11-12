@@ -1070,7 +1070,7 @@ function GamePageContent() {
       <AnimatePresence>
         <motion.video
           ref={overlayVideoRef}
-          src="/overlayGrain.mov"
+          src="/overlayGrain.mp4"
           loop
           muted
           playsInline

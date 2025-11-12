@@ -21,8 +21,14 @@ const PORT = process.env.PORT || 4000;
 
 // Middleware
 app.use(helmet());
+
+// Configure CORS with support for multiple origins
+const corsOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : ['http://localhost:3000'];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: corsOrigins,
   credentials: true
 }));
 app.use(express.json());
