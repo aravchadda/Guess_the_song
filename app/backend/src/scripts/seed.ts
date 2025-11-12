@@ -4,19 +4,28 @@
  * 
  * Usage: npm run seed
  * 
- * Reads preprocessed_songs.json and populates MongoDB
+ * Reads spotify_playlist_tracks.csv and populates MongoDB
  */
 
 import mongoose from 'mongoose';
 import * as fs from 'fs';
 import * as path from 'path';
+import csv from 'csv-parser';
 import dotenv from 'dotenv';
 import Song from '../models/Song';
 
 // Load environment variables from backend
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const PREPROCESSED_JSON = path.join(__dirname, '../../../scripts/preprocessed_songs.json');
+const CSV_PATH = path.join(__dirname, '../../spotify_playlist_tracks.csv');
+
+interface SongRow {
+  Song_Name: string;
+  Artists: string;
+  YouTube_Link: string;
+  ViewCount: string;
+  Release: string;
+}
 
 interface PreprocessedSong {
   name: string;
@@ -32,14 +41,37 @@ interface PreprocessedSong {
   };
 }
 
+/**
+ * Sanitize song name for filesystem use (only replace truly invalid characters)
+ * Matches the logic from preprocess.ts
+ */
+function sanitizeSongName(songName: string): string {
+  // Only replace characters that are invalid in Windows filesystem
+  return songName
+    .replace(/[<>:"|?*]/g, '_') // Replace invalid chars
+    .trim();
+}
+
+/**
+ * Generate preprocessed paths for a song
+ * Matches the logic from preprocess.ts
+ */
+function generatePreprocessedPaths(songName: string): { level1: string; level2: string; level3: string } {
+  const sanitizedName = sanitizeSongName(songName);
+  return {
+    level1: `/preprocessed/${sanitizedName}/level1.mp3`,
+    level2: `/preprocessed/${sanitizedName}/level2.mp3`,
+    level3: `/preprocessed/${sanitizedName}/level3.mp3`
+  };
+}
+
 async function seedDatabase() {
   try {
     console.log('🌱 Starting database seed...\n');
     
-    // Check if JSON file exists
-    if (!fs.existsSync(PREPROCESSED_JSON)) {
-      console.error(`❌ Preprocessed JSON not found: ${PREPROCESSED_JSON}`);
-      console.error('Please run the preprocessing script first: npm run preprocess');
+    // Check if CSV file exists
+    if (!fs.existsSync(CSV_PATH)) {
+      console.error(`❌ CSV file not found: ${CSV_PATH}`);
       process.exit(1);
     }
     
@@ -49,12 +81,43 @@ async function seedDatabase() {
     await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB\n');
     
-    // Read preprocessed songs
-    const songsData: PreprocessedSong[] = JSON.parse(
-      fs.readFileSync(PREPROCESSED_JSON, 'utf-8')
-    );
+    // Read and parse CSV
+    console.log('📖 Reading CSV file...');
+    const songs: SongRow[] = [];
+    await new Promise<void>((resolve, reject) => {
+      fs.createReadStream(CSV_PATH)
+        .pipe(csv())
+        .on('data', (row: SongRow) => {
+          // Filter out empty rows
+          if (row.Song_Name && row.Song_Name.trim()) {
+            songs.push(row);
+          }
+        })
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err));
+    });
     
-    console.log(`📊 Found ${songsData.length} songs to seed\n`);
+    console.log(`📊 Found ${songs.length} songs in CSV\n`);
+    
+    // Convert CSV rows to PreprocessedSong format
+    const songsData: PreprocessedSong[] = songs.map((song) => {
+      const songName = song.Song_Name.trim();
+      const artists = song.Artists.trim();
+      const releaseYear = parseFloat(song.Release);
+      const decade = Math.floor(releaseYear / 10) * 10;
+      // Handle ViewCount with spaces and commas
+      const viewcount = parseInt(song.ViewCount.replace(/[,\s]/g, '').trim());
+      
+      return {
+        name: songName,
+        artists: artists,
+        youtube_link: song.YouTube_Link.trim(),
+        viewcount: viewcount,
+        release_year: releaseYear,
+        decade: decade,
+        preprocessed: generatePreprocessedPaths(songName)
+      };
+    });
     
     // Clear existing songs (optional - comment out if you want to keep existing)
     const existingCount = await Song.countDocuments();
