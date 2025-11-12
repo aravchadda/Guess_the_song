@@ -63,6 +63,7 @@ router.post('/start', async (req: Request, res: Response) => {
       mode,
       modeValue,
       startedAt: new Date(),
+      currentLevel: 1,
       wasCorrect: false,
       attempts: []
     });
@@ -96,7 +97,7 @@ router.post('/start', async (req: Request, res: Response) => {
 router.post('/:playId/guess', async (req: Request, res: Response) => {
   try {
     const { playId } = req.params;
-    const { guess } = req.body;
+    const { guess, level } = req.body;
     
     if (!guess || typeof guess !== 'string') {
       return res.status(400).json({ error: 'Guess is required and must be a string' });
@@ -113,13 +114,13 @@ router.post('/:playId/guess', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'This play is already finished' });
     }
     
-    // Check if max attempts reached
-    if (play.attempts.length >= 3) {
-      return res.status(400).json({ error: 'Maximum attempts reached' });
+    // Use provided level or current level
+    const guessLevel = level !== undefined ? parseInt(level) : play.currentLevel;
+    if (guessLevel < 1 || guessLevel > 3) {
+      return res.status(400).json({ error: 'Level must be between 1 and 3' });
     }
     
     const song = play.songId;
-    const currentAttempt = play.attempts.length + 1;
     
     // Perform fuzzy match
     const threshold = parseFloat(process.env.MATCH_THRESHOLD || '0.72');
@@ -127,15 +128,16 @@ router.post('/:playId/guess', async (req: Request, res: Response) => {
     
     // Record attempt
     play.attempts.push({
-      attemptNumber: currentAttempt,
+      attemptNumber: play.attempts.length + 1,
       guessText: guess,
       timestamp: new Date(),
       correct: isCorrect
     });
     
     if (isCorrect) {
+      // Correct guess - game won
       play.wasCorrect = true;
-      play.guessedLevel = currentAttempt;
+      play.guessedLevel = guessLevel;
       play.finishedAt = new Date();
       await play.save();
       
@@ -149,48 +151,28 @@ router.post('/:playId/guess', async (req: Request, res: Response) => {
       });
     }
     
+    // Wrong guess
+    if (guessLevel === 3) {
+      // Wrong on vocals (level 3) - game over
+      play.finishedAt = new Date();
+      await play.save();
+      
+      return res.json({
+        correct: false,
+        reveal: {
+          name: song.name,
+          artists: song.artists,
+          youtube_link: song.youtube_link
+        }
+      });
+    }
+    
+    // Wrong on drums or instruments - continue to next level
+    // Don't finish the game, frontend will handle level progression
     await play.save();
     
-    const remainingAttempts = 3 - play.attempts.length;
-    
-    // Always finish play and reveal when no attempts left
-    // Also finish if only 1 attempt left (this handles the case where frontend
-    // reaches vocals with 1 attempt remaining, ensuring reveal is always returned)
-    if (remainingAttempts === 0) {
-      play.finishedAt = new Date();
-      await play.save();
-      
-      return res.json({
-        correct: false,
-        remainingAttempts: 0,
-        reveal: {
-          name: song.name,
-          artists: song.artists,
-          youtube_link: song.youtube_link
-        }
-      });
-    }
-    
-    // If only 1 attempt left, also return reveal (frontend will end game on vocals anyway)
-    // This ensures reveal is always available when game ends
-    if (remainingAttempts === 1) {
-      play.finishedAt = new Date();
-      await play.save();
-      
-      return res.json({
-        correct: false,
-        remainingAttempts: 1,
-        reveal: {
-          name: song.name,
-          artists: song.artists,
-          youtube_link: song.youtube_link
-        }
-      });
-    }
-    
     res.json({
-      correct: false,
-      remainingAttempts
+      correct: false
     });
   } catch (error) {
     console.error('Error processing guess:', error);
@@ -215,15 +197,17 @@ router.post('/:playId/skip', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'This play is already finished' });
     }
     
-    if (play.attempts.length >= 3) {
-      return res.status(400).json({ error: 'Maximum attempts reached' });
+    // Can't skip if already on level 3
+    if (play.currentLevel >= 3) {
+      return res.status(400).json({ error: 'Already on the last level' });
     }
     
-    const newAttemptNumber = play.attempts.length + 1;
+    // Advance to next level
+    play.currentLevel += 1;
     
     // Record skip as an attempt with placeholder text
     play.attempts.push({
-      attemptNumber: newAttemptNumber,
+      attemptNumber: play.attempts.length + 1,
       guessText: '[SKIPPED]',
       timestamp: new Date(),
       correct: false
@@ -232,8 +216,7 @@ router.post('/:playId/skip', async (req: Request, res: Response) => {
     await play.save();
     
     res.json({
-      newAttemptNumber,
-      remainingAttempts: 3 - play.attempts.length
+      currentLevel: play.currentLevel
     });
   } catch (error) {
     console.error('Error skipping:', error);

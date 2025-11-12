@@ -13,3 +13,4 @@ print(f'\nBottom 10 songs by view count:')
 bottom_10 = df.nsmallest(10, 'ViewCount', keep='all')[['Song_Name', 'Artists', 'ViewCount']]
 print(bottom_10.to_string())
 
+

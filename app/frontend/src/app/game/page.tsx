@@ -170,17 +170,24 @@ export default function GamePage() {
     if (!playId || currentLevel === 3 || isFinished) return;
     
     try {
-      await skipLevel(playId);
+      const response = await skipLevel(playId);
       audioManager.current.stop();
       setIsPlaying(false);
       stopVideoSequence();
-      const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
+      // Use the level from backend response, or advance manually
+      const nextLevel = (response.currentLevel || currentLevel + 1) as 1 | 2 | 3;
       setCurrentLevel(nextLevel);
       setLastGuessedLevel(null);
       setReveal(null);
       setMessage('');
     } catch (error: any) {
-      setMessage(`❌ ${error.message}`);
+      // If skip fails because game is finished, that's okay - just show message
+      if (error.message?.includes('finished')) {
+        setIsFinished(true);
+        setMessage(`❌ ${error.message}`);
+      } else {
+        setMessage(`❌ ${error.message}`);
+      }
     }
   };
 
@@ -192,7 +199,7 @@ export default function GamePage() {
     if (lastGuessedLevel === currentLevel) return; // Already guessed on this level
     
     try {
-      const response = await submitGuess(playId, finalGuess.trim());
+      const response = await submitGuess(playId, finalGuess.trim(), currentLevel);
       
       // Mark that we've guessed on this level
       setLastGuessedLevel(currentLevel);
@@ -210,36 +217,17 @@ export default function GamePage() {
         setMessage('');
       } else {
         // Wrong guess
-        if (currentLevel === 3) {
-          // Wrong on last level (vocals) - game over
-          console.log('Wrong guess on vocals - ending game', { reveal: response.reveal });
+        if (response.reveal) {
+          // Backend returned reveal - game is finished (wrong on vocals)
           setIsCorrect(false);
           setIsFinished(true);
-          // Use reveal from response if available, otherwise we'll need to fetch it
-          if (response.reveal) {
-            setReveal(response.reveal);
-          } else {
-            // Backend didn't return reveal (game might already be finished)
-            // Try to get reveal by making the backend finish the game
-            // For now, set reveal to null - the game will still end
-            setReveal(null);
-          }
+          setReveal(response.reveal);
           audioManager.current.stop();
           setIsPlaying(false);
           stopVideoSequence();
           setMessage('');
         } else {
-          // Wrong on drums or instruments - skip to next level
-          // Ignore backend's reveal/finish state - we control the flow based on level
-          try {
-            await skipLevel(playId);
-          } catch (error: any) {
-            // Skip might fail if backend finished the game, but we still want to continue
-            // Just log the error and continue with level progression
-            console.log('Skip failed (game may be finished on backend), but continuing to next level:', error.message);
-          }
-          
-          // Always advance to next level regardless of skip success/failure
+          // Wrong on drums or instruments - advance to next level
           audioManager.current.stop();
           setIsPlaying(false);
           stopVideoSequence();
@@ -247,7 +235,6 @@ export default function GamePage() {
           const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
           setCurrentLevel(nextLevel);
           setLastGuessedLevel(null); // Reset for new level
-          setReveal(null); // Clear any reveal (ignore backend's reveal)
           setMessage('');
         }
       }
@@ -256,18 +243,8 @@ export default function GamePage() {
       const errorMessage = error.message || 'Failed to submit guess';
       setLastGuessedLevel(null);
       
-      // If we're on vocals and get an error, end the game
-      if (currentLevel === 3) {
-        console.log('Error on vocals - ending game anyway', { errorMessage });
-        setIsCorrect(false);
-        setIsFinished(true);
-        setReveal(null); // Can't get reveal if API failed
-        audioManager.current.stop();
-        setIsPlaying(false);
-        stopVideoSequence();
-        setMessage('');
-      } else if (errorMessage.includes('finished') || errorMessage.includes('Maximum attempts')) {
-        // Game finished on backend - end it
+      // If game is already finished on backend, end it
+      if (errorMessage.includes('finished')) {
         setIsFinished(true);
         setMessage(`❌ ${errorMessage}`);
       } else {
@@ -361,16 +338,42 @@ export default function GamePage() {
     
     setTimeout(() => {
       setShowViews(true);
-      // Play ding sound when views appear (both year and views are now visible)
-     
     }, 1200);
-
+    
     setTimeout(() => {
+      // Play ding sound 1 second earlier (when year appears)
       if (dingSoundRef.current) {
-        dingSoundRef.current.currentTime = 0;
-        dingSoundRef.current.play().catch(err => console.log('Error playing ding sound:', err));
+        // Check if audio is ready
+        if (dingSoundRef.current.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          dingSoundRef.current.currentTime = 0;
+          dingSoundRef.current.play().catch(err => {
+            console.error('Error playing ding sound:', err);
+            console.error('Audio state:', {
+              readyState: dingSoundRef.current?.readyState,
+              networkState: dingSoundRef.current?.networkState,
+              error: dingSoundRef.current?.error,
+              src: dingSoundRef.current?.src
+            });
+          });
+        } else {
+          // Wait for audio to be ready
+          const playWhenReady = () => {
+            if (dingSoundRef.current && dingSoundRef.current.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+              dingSoundRef.current.currentTime = 0;
+              dingSoundRef.current.play().catch(err => {
+                console.error('Error playing ding sound after waiting:', err);
+              });
+              dingSoundRef.current.removeEventListener('canplay', playWhenReady);
+            }
+          };
+          dingSoundRef.current.addEventListener('canplay', playWhenReady);
+          // Fallback: try to load again if not ready
+          if (dingSoundRef.current.readyState === HTMLMediaElement.HAVE_NOTHING) {
+            dingSoundRef.current.load();
+          }
+        }
       }
-    }, 300);
+    }, 200);
     
     setTimeout(() => {
       setShowFullGameScreen(true);
@@ -874,13 +877,49 @@ export default function GamePage() {
   useEffect(() => {
     const audio = new Audio('/ding.m4a');
     audio.preload = 'auto';
+    
+    // Log the audio source for debugging
+    console.log('Initializing ding sound with src:', audio.src);
+    
+    // Add error handling
+    const handleError = (e: Event) => {
+      console.error('Error loading ding sound:', e);
+      console.error('Audio error details:', {
+        error: audio.error,
+        errorCode: audio.error?.code,
+        errorMessage: audio.error?.message,
+        networkState: audio.networkState,
+        readyState: audio.readyState,
+        src: audio.src,
+        currentSrc: audio.currentSrc
+      });
+    };
+    
+    // Add loaded event listener
+    const handleCanPlayThrough = () => {
+      console.log('Ding sound loaded and ready');
+    };
+    
+    // Add loadstart listener
+    const handleLoadStart = () => {
+      console.log('Ding sound load started');
+    };
+    
+    audio.addEventListener('error', handleError);
+    audio.addEventListener('canplaythrough', handleCanPlayThrough);
+    audio.addEventListener('loadstart', handleLoadStart);
+    
     // Preload the audio to reduce delay
     audio.load();
+    
     dingSoundRef.current = audio;
     
     return () => {
       if (dingSoundRef.current) {
         dingSoundRef.current.pause();
+        dingSoundRef.current.removeEventListener('error', handleError);
+        dingSoundRef.current.removeEventListener('canplaythrough', handleCanPlayThrough);
+        dingSoundRef.current.removeEventListener('loadstart', handleLoadStart);
         dingSoundRef.current = null;
       }
     };

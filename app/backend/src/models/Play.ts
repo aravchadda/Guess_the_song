@@ -13,7 +13,8 @@ export interface IPlay extends Document {
   modeValue?: string;
   startedAt: Date;
   finishedAt?: Date;
-  guessedLevel?: number;
+  currentLevel: number; // Current level (1, 2, or 3)
+  guessedLevel?: number; // Level at which correct guess was made
   wasCorrect: boolean;
   attempts: IAttempt[];
   createdAt: Date;
@@ -34,6 +35,7 @@ const PlaySchema: Schema = new Schema(
     modeValue: { type: String },
     startedAt: { type: Date, default: Date.now },
     finishedAt: { type: Date },
+    currentLevel: { type: Number, default: 1, min: 1, max: 3 },
     guessedLevel: { type: Number, min: 1, max: 3 },
     wasCorrect: { type: Boolean, default: false },
     attempts: [AttemptSchema]

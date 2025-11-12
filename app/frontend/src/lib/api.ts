@@ -22,7 +22,6 @@ export interface PlayResponse {
 
 export interface GuessResponse {
   correct: boolean;
-  remainingAttempts?: number;
   reveal?: {
     name: string;
     artists: string;
@@ -31,8 +30,7 @@ export interface GuessResponse {
 }
 
 export interface SkipResponse {
-  newAttemptNumber: number;
-  remainingAttempts: number;
+  currentLevel: number;
 }
 
 export interface Stats {
@@ -75,13 +73,13 @@ export async function startPlay(mode: 'random' | 'decade', minYear?: number): Pr
 /**
  * Submit a guess
  */
-export async function submitGuess(playId: string, guess: string): Promise<GuessResponse> {
+export async function submitGuess(playId: string, guess: string, level?: number): Promise<GuessResponse> {
   const response = await fetch(`${API_URL}/api/plays/${playId}/guess`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ guess }),
+    body: JSON.stringify({ guess, level }),
   });
   
   if (!response.ok) {
