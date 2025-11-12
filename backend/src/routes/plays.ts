@@ -71,6 +71,7 @@ router.post('/start', async (req: Request, res: Response) => {
     await play.save();
     
     // Return play data (without revealing song name/artists)
+    // Use song ID-based URLs instead of file paths to hide song name
     res.json({
       playId: play._id,
       song: {
@@ -78,9 +79,9 @@ router.post('/start', async (req: Request, res: Response) => {
         release_year: song.release_year,
         viewcount_formatted: formatViewCount(song.viewcount),
         audio_urls: {
-          level1: song.preprocessed.level1,
-          level2: song.preprocessed.level2,
-          level3: song.preprocessed.level3
+          level1: `/api/audio/${song._id}/level1`,
+          level2: `/api/audio/${song._id}/level2`,
+          level3: `/api/audio/${song._id}/level3`
         }
       }
     });

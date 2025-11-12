@@ -32,7 +32,7 @@ export class AudioManager {
   }
   
   /**
-   * Preload and decode all audio levels
+   * Preload and decode all audio levels (deprecated - use loadLevel instead)
    */
   async preloadAudio(songId: string, urls: AudioUrls, apiUrl: string): Promise<void> {
     if (!this.audioContext) {
@@ -63,6 +63,43 @@ export class AudioManager {
         console.error(`Error preloading ${level}:`, error);
         throw error;
       }
+    }
+  }
+
+  /**
+   * Load and decode a single audio level
+   */
+  async loadLevel(songId: string, level: 1 | 2 | 3, urls: AudioUrls, apiUrl: string): Promise<void> {
+    if (!this.audioContext) {
+      throw new Error('AudioContext not initialized. Call initialize() first.');
+    }
+    
+    const levelKey: keyof AudioUrls = `level${level}` as keyof AudioUrls;
+    const url = `${apiUrl}${urls[levelKey]}`;
+    const key = `${songId}-level${level}`;
+    
+    // Check if already loaded
+    if (this.buffers.has(key)) {
+      return; // Already loaded, skip
+    }
+    
+    try {
+      // Fetch audio as ArrayBuffer
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch level${level}: ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // Decode audio data
+      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+      
+      // Store in memory
+      this.buffers.set(key, audioBuffer);
+    } catch (error) {
+      console.error(`Error loading level${level}:`, error);
+      throw error;
     }
   }
   

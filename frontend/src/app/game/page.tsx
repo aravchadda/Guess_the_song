@@ -134,6 +134,21 @@ export default function GamePage() {
     }
   }, [currentLevel, showGameScreen, isFinished]);
 
+  // Load audio level when currentLevel changes
+  useEffect(() => {
+    if (song && showGameScreen && !isFinished && currentLevel) {
+      // Load the current level audio if not already loaded
+      audioManager.current.loadLevel(
+        song.id,
+        currentLevel,
+        song.audio_urls,
+        API_URL
+      ).catch((error) => {
+        console.error(`Error loading level ${currentLevel}:`, error);
+      });
+    }
+  }, [currentLevel, song, showGameScreen, isFinished]);
+
   // Initialize game
   const initializeGame = useCallback(async () => {
     try {
@@ -153,9 +168,10 @@ export default function GamePage() {
       setPlayId(playResponse.playId);
       setSong(playResponse.song);
       
-      // Preload audio
-      await audioManager.current.preloadAudio(
+      // Load only level1 initially
+      await audioManager.current.loadLevel(
         playResponse.song.id,
+        1,
         playResponse.song.audio_urls,
         API_URL
       );

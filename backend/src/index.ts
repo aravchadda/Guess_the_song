@@ -14,6 +14,7 @@ dotenv.config();
 import playsRouter from './routes/plays';
 import statsRouter from './routes/stats';
 import songsRouter from './routes/songs';
+import audioRouter from './routes/audio';
 
 const app: Application = express();
 const PORT = process.env.PORT || 4000;
@@ -38,6 +39,7 @@ const guessLimiter = rateLimit({
 app.use('/api/plays', playsRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/songs', songsRouter);
+app.use('/api/audio', audioRouter);
 
 // Apply rate limiting to guess endpoint
 app.post('/api/plays/:playId/guess', guessLimiter);
