@@ -109,6 +109,9 @@ export default function GamePage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+  const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const [lastGuessedLevel, setLastGuessedLevel] = useState<1 | 2 | 3 | null>(null);
   
   const audioManager = useRef(getAudioManager());
@@ -208,8 +211,17 @@ export default function GamePage() {
         setIsPlaying(false);
         stopVideoSequence();
         setMessage('');
+        // Show success popup
+        setPopupMessage('Congrats you guessed it right');
+        setPopupType('success');
+        setShowPopup(true);
       } else {
         // Wrong guess
+        // Show error popup
+        setPopupMessage('Better luck next time');
+        setPopupType('error');
+        setShowPopup(true);
+        
         if (currentLevel === 3) {
           // Wrong on last level (vocals) - game over
           console.log('Wrong guess on vocals - ending game', { reveal: response.reveal });
@@ -608,7 +620,7 @@ export default function GamePage() {
       const now = Date.now();
       if (now - lastUIUpdateTimeRef.current >= 100) {
         setHoldProgress(progress);
-        setSpeedMultiplier(newMultiplier);
+      setSpeedMultiplier(newMultiplier);
         lastUIUpdateTimeRef.current = now;
       }
       
@@ -682,7 +694,7 @@ export default function GamePage() {
           returnToCarousel();
         } else {
           // If on carousel, start holding
-          setIsSpacebarHeld(true);
+        setIsSpacebarHeld(true);
         }
       }
     };
@@ -732,7 +744,7 @@ export default function GamePage() {
         
         // Only transition to game screen if held for 2 seconds
         if (hasHeldFor2Seconds) {
-          cutToGameScreen();
+        cutToGameScreen();
         }
       }
     };
@@ -886,16 +898,22 @@ export default function GamePage() {
     };
   }, []);
 
-  // Control overlay video based on game screen state
+  // Control overlay video - always playing
   useEffect(() => {
     if (overlayVideoRef.current) {
-      if (!showGameScreen) {
-        overlayVideoRef.current.play().catch(console.error);
-      } else {
-        overlayVideoRef.current.pause();
-      }
+      overlayVideoRef.current.play().catch(console.error);
     }
-  }, [showGameScreen]);
+  }, []);
+
+  // Auto-hide popup after 3 seconds
+  useEffect(() => {
+    if (showPopup) {
+      const timer = setTimeout(() => {
+        setShowPopup(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showPopup]);
 
   // Initialize game screen background videos
   useEffect(() => {
@@ -992,23 +1010,21 @@ export default function GamePage() {
         )}
       </AnimatePresence>
       
-      {/* Overlay Video Background */}
-       <AnimatePresence>
-        {!showGameScreen && (
-          <motion.video
-            ref={overlayVideoRef}
-            src="/overlayGrain.mov"
-            loop
-            muted
-            playsInline
-            autoPlay
-            className="absolute inset-0 w-full h-full object-cover z-[1]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.2 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-          />
-        )}
+      {/* Overlay Video Background - Always visible */}
+      <AnimatePresence>
+        <motion.video
+          ref={overlayVideoRef}
+          src="/overlayGrain.mov"
+          loop
+          muted
+          playsInline
+          autoPlay
+          className="absolute inset-0 w-full h-full object-cover z-[1]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.2 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0 }}
+        />
       </AnimatePresence>
 
       {/* Game Screen Background Videos */}
@@ -1102,7 +1118,7 @@ export default function GamePage() {
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
             {/* Row 1 - Top (slower, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 12vw, 250px))', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
                 items={carouselItems} 
@@ -1122,7 +1138,7 @@ export default function GamePage() {
             </div>
             
             {/* Row 3 - Bottom (faster, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 12vw, 250px))', transform: 'translateY(-50%)' }}>
+            <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
           
               <Carousel 
                 direction="left" 
@@ -1140,7 +1156,8 @@ export default function GamePage() {
       <AnimatePresence>
         {showBlackScreen && (
           <motion.div
-            className="fixed inset-0 bg-[#0E0E10] z-40 flex items-center justify-center"
+            className="fixed inset-0 z-40 flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(14, 14, 16, 0.7)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1161,14 +1178,14 @@ export default function GamePage() {
             {song && showViews && (
               <motion.div
                 className="absolute left-1/2 transform -translate-x-1/2"
-                style={{ top: 'calc(50% + clamp(40px, 6vh, 80px))' }}
+                style={{ top: 'calc(51%)'}}
                
               >
                 <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-[#e2dcde]">{song.viewcount_formatted}</p>
               </motion.div>
             )}
           </motion.div>
-        )}
+        )} 
       </AnimatePresence>
 
       {/* Game Screen */}
@@ -1217,37 +1234,37 @@ export default function GamePage() {
               {/* Song name and YouTube link at top when correct */}
               {isCorrect && reveal && (
                 <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2">
-                  <h2 className="text-white text-xl sm:text-2xl md:text-3xl font-bold text-center">
+                  <h2 className="text-green-500 text-xl sm:text-2xl md:text-3xl font-bold text-center">
                     {reveal.name}
                   </h2>
                   <a
                     href={reveal.youtube_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white text-sm sm:text-base hover:underline"
+                    className="text-green-500 text-sm sm:text-base hover:underline"
                   >
                     Watch on YouTube
                   </a>
                   </div>
                 )}
-              
+                
               {/* Song name and YouTube link at top when game over (wrong on vocals) */}
               {isFinished && !isCorrect && reveal && (
                 <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2">
                   <h2 className="text-red-500 text-xl sm:text-2xl md:text-3xl font-bold text-center">
-                    {reveal.name}
-                  </h2>
-                  <a
-                    href={reveal.youtube_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                      {reveal.name}
+                    </h2>
+                    <a
+                      href={reveal.youtube_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
                     className="text-red-500 text-sm sm:text-base hover:underline"
-                  >
+                    >
                     Watch on YouTube
-                  </a>
+                    </a>
                   </div>
                 )}
-              
+                
               {/* Year - Top left corner */}
               {song && (
                 <div className="fixed top-4 sm:top-6 md:top-8 left-4 sm:left-6 md:left-8 text-white z-10">
@@ -1287,7 +1304,7 @@ export default function GamePage() {
                       currentLevel === 3 && level <= 3;    // Vocals: light up all three
                     
                     return (
-                    <button
+                  <button
                       key={level}
                       className={`px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all ${
                           shouldLightUp
@@ -1317,8 +1334,8 @@ export default function GamePage() {
               {isCorrect && (
                 <div className="absolute bottom-4 sm:bottom-6 md:bottom-8 right-4 sm:right-6 md:right-8 text-white font-bold text-sm sm:text-base z-10">
                   Correct
-                </div>
-              )}
+              </div>
+            )}
             </div>
           </motion.div>
         )}
@@ -1329,7 +1346,7 @@ export default function GamePage() {
         className="fixed bottom-4 sm:bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full px-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
-        transition={{ duration: 0.3 }}
+            transition={{ duration: 0.3 }}
       >
         <motion.div
           className="flex flex-col items-center space-y-4 sm:space-y-6"
@@ -1343,9 +1360,9 @@ export default function GamePage() {
               onClick={showGameScreen ? returnToCarousel : undefined}
               className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
               style={{ minWidth: '80px' }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
               <span className="relative z-10">SPACE</span>
               {!showGameScreen && (
                 <motion.span
@@ -1361,6 +1378,33 @@ export default function GamePage() {
           </p>
         </motion.div>
       </motion.div>
+
+      {/* Popup Notification */}
+      <AnimatePresence>
+        {showPopup && showGameScreen && (
+          <motion.div
+            className="fixed inset-0 flex items-center justify-center z-[100] pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              className={`px-6 py-4 rounded-lg shadow-2xl text-white font-semibold text-base sm:text-lg pointer-events-auto ${
+                popupType === 'success'
+                  ? 'bg-gradient-to-r from-green-600 to-green-700'
+                  : 'bg-gradient-to-r from-red-600 to-red-700'
+              }`}
+              initial={{ y: 50, opacity: 0, scale: 0.9 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 50, opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              {popupMessage}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
