@@ -13,9 +13,9 @@ music_collection/
 node_modules/
 .pnp/
 .pnp.js
-app/backend/node_modules/
-app/frontend/node_modules/
-app/scripts/node_modules/
+backend/node_modules/
+frontend/node_modules/
+scripts/node_modules/
 
 # ============================================
 # Testing
@@ -33,15 +33,15 @@ dist/
 build/
 .next/
 out/
-app/backend/dist/
-app/backend/build/
-app/backend/.next/
-app/backend/out/
-app/frontend/dist/
-app/frontend/build/
-app/frontend/.next/
-app/frontend/out/
-app/scripts/dist/
+backend/dist/
+backend/build/
+backend/.next/
+backend/out/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+scripts/dist/
 
 # ============================================
 # Environment variables
@@ -80,10 +80,9 @@ Thumbs.db
 # ============================================
 # Audio & Generated files
 # ============================================
-app/backend/Separated/
-app/backend/preprocessed/
-scripts/preprocessed_songs.json
-app/scripts/preprocessed_songs.json
+backend/Separated/
+
+
 
 # ============================================
 # PM2
