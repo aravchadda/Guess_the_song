@@ -113,7 +113,7 @@ const Carousel = React.memo(({
     <div 
       className="relative overflow-x-hidden flex-1 w-full max-w-full"
       style={{
-        height: 'clamp(60px, 12vw, 220px)',
+        height: 'clamp(60px, 14vw, 260px)',
       }}
     >
       <motion.div
