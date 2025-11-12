@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAudioManager } from '@/lib/audioManager';
@@ -62,7 +62,7 @@ const videos = [
   "/tame-impala.MOV",
 ];
 
-export default function GamePage() {
+function GamePageContent() {
   const searchParams = useSearchParams();
   const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
   
@@ -1462,5 +1462,17 @@ export default function GamePage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    }>
+      <GamePageContent />
+    </Suspense>
   );
 }
