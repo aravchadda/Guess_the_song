@@ -18,6 +18,7 @@ export class AudioManager {
   private playbackStartTime: number = 0;
   private currentBuffer: AudioBuffer | null = null;
   private volumeGain: number = 1.5; // 50% louder (1.0 = normal, 1.5 = 50% increase)
+  private onEndedCallback: (() => void) | null = null;
   
   /**
    * Initialize audio context (requires user gesture)
@@ -143,6 +144,10 @@ export class AudioManager {
     source.onended = () => {
       this.isPlaying = false;
       this.currentGainNode = null;
+      // Call callback if set
+      if (this.onEndedCallback) {
+        this.onEndedCallback();
+      }
     };
     
     // Start playback
@@ -216,6 +221,13 @@ export class AudioManager {
       }
     }
     return count / 3;
+  }
+
+  /**
+   * Set callback for when audio playback ends
+   */
+  setOnEnded(callback: (() => void) | null): void {
+    this.onEndedCallback = callback;
   }
 }
 

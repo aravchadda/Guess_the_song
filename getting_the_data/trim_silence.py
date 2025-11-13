@@ -1,133 +1,136 @@
 #!/usr/bin/env python3
 """
-Trim + process MP3 audio:
-
-1) Load MP3 → decode
-2) Trim leading audio until its dBFS reaches TRIM_THRESHOLD_DB (absolute dBFS)
-3) If the file NEVER reaches the threshold, make it a 0.1s silent file
-4) Save trimmed audio as WAV (lossless temp)
-5) Run ffmpeg filters, encode final MP3
+Trim silence from the beginning of audio clips in preprocessed folder.
+Removes leading silence/low volume and deletes files that are entirely silent.
 """
-
-import subprocess
+import math
+import os
 from pathlib import Path
 from pydub import AudioSegment
-import math
-import sys
+from pydub.silence import detect_leading_silence
 
-# ---------- CONFIG ----------
-ROOT_FOLDER = Path("backend/preprocessed")
-TRIM_THRESHOLD_DB = 5.0      # Absolute dBFS threshold to stop trimming
-WINDOW_MS = 50                # Window size in ms for scanning
-TEMP_SUFFIX = ".tmp_trim.wav"
-FINAL_SUFFIX = "_final.mp3"
+# Configuration
+PREPROCESSED_DIR = Path(__file__).parent.parent / "backend" / "preprocessed"
+SILENCE_THRESHOLD = -40  # dBFS threshold for silence detection (lower = more sensitive)
+MIN_SILENCE_LEN = 100  # Minimum silence length in ms to consider it as silence
+KEEP_LEADING_SILENCE = 0  # Keep this many ms of silence at the start (for natural sound)
 
-FFMPEG_BITRATE = "320k"
-FFMPEG_FILTERS = (
-    "afftdn=nf=-20,"                             # denoise (valid range for nf is -80..-20)
-    "acompressor=threshold=-22dB:ratio=2:attack=10:release=120,"
-    "loudnorm=I=-14:TP=-1:LRA=11"
-)
-
-# ---------- SINGLE FILE MODE ----------
-SINGLE_FILE = r"C:\Users\dell\Desktop\Guess_the_song\backend\preprocessed\Photograph\level2.mp3"
-# --------------------------------------
-
-
-def first_position_reaching_threshold(audio: AudioSegment, threshold_db: float, window_ms: int) -> int:
+def detect_audio_start(audio: AudioSegment, silence_thresh: float = SILENCE_THRESHOLD) -> int:
     """
-    Return ms index of the first window whose dBFS >= threshold_db.
-    If none found, return -1.
+    Find the first point where audio exceeds the silence threshold.
+    Returns the position in milliseconds.
     """
-    length = len(audio)
-    pos = 0
-    while pos < length:
-        chunk = audio[pos: pos + window_ms]
-        chunk_dbfs = chunk.dBFS
-        if math.isfinite(chunk_dbfs) and chunk_dbfs >= threshold_db:
-            return pos
-        pos += window_ms
-    return -1  # never reaches threshold
+    # Convert to mono for analysis if stereo
+    if audio.channels > 1:
+        audio_mono = audio.set_channels(1)
+    else:
+        audio_mono = audio
+    
+    # Check in chunks of 10ms for efficiency
+    chunk_size = 10  # ms
+    for i in range(0, len(audio_mono), chunk_size):
+        chunk = audio_mono[i:i + chunk_size]
+        
+        # Use pydub's built-in dBFS property (more reliable)
+        db = chunk.dBFS
+        
+        # Handle case where chunk is completely silent (dBFS returns -inf)
+        if db == float('-inf'):
+            continue
+        
+        # If this chunk has significant audio, return its start position
+        if db > silence_thresh:
+            return max(0, i - KEEP_LEADING_SILENCE)
+    
+    # No audio found
+    return None
 
-
-def trim_leading_to_threshold_wav(input_path: Path, temp_out_wav: Path,
-                                  threshold_db: float, window_ms: int) -> int:
+def process_audio_file(file_path: Path) -> tuple[bool, str]:
     """
-    Trim leading audio up to the first window >= threshold_db.
-    If file NEVER reaches threshold, return a 0.1s WAV file.
+    Process a single audio file: trim leading silence or delete if entirely silent.
+    Returns (success, message)
     """
-    audio = AudioSegment.from_file(input_path)
-
-    # 1) Try absolute threshold detection
-    pos = first_position_reaching_threshold(audio, threshold_db, window_ms)
-
-    if pos == -1:
-        # --------- NEW BEHAVIOR: NO THRESHOLD FOUND → MAKE FILE 0.1s ---------
-        print("  File never reaches threshold → making it a 0.1s file.")
-        tiny = AudioSegment.silent(duration=100)  # 0.1 seconds = 100 ms
-        tiny.export(temp_out_wav, format="wav")
-        return 0
-
-    # 2) Threshold found: trim normally
-    if pos <= 0:
-        audio.export(temp_out_wav, format="wav")
-        return 0
-
-    trimmed = audio[pos:]
-    trimmed.export(temp_out_wav, format="wav")
-    return pos
-
-
-def run_ffmpeg_filters(input_file: Path, output_file: Path, filters: str, bitrate: str):
-    """Run ffmpeg with filters and encode final MP3."""
-    cmd = [
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-i", str(input_file),
-        "-af", filters,
-        "-b:a", bitrate,
-        str(output_file)
-    ]
-    subprocess.run(cmd, check=True)
-
-
-def process_file(mp3_path: Path):
-    print(f"\nProcessing: {mp3_path}")
-    temp_wav = mp3_path.with_suffix(TEMP_SUFFIX)
-    final_path = mp3_path.with_name(mp3_path.stem + FINAL_SUFFIX)
-
     try:
-        start_trim_ms = trim_leading_to_threshold_wav(
-            mp3_path, temp_wav, TRIM_THRESHOLD_DB, WINDOW_MS
-        )
-
-        if start_trim_ms > 0:
-            print(f"  Trimmed {start_trim_ms} ms (first window >= {TRIM_THRESHOLD_DB} dBFS).")
-
-        print("  Running ffmpeg filters...")
-        run_ffmpeg_filters(temp_wav, final_path, FFMPEG_FILTERS, FFMPEG_BITRATE)
-
-        print(f"  Saved final file: {final_path}")
-
+        # Load audio file
+        audio = AudioSegment.from_mp3(file_path)
+        
+        # Find where audio actually starts
+        audio_start = detect_audio_start(audio)
+        
+        if audio_start is None:
+            # Entire file is silent, delete it
+            file_path.unlink()
+            return True, "deleted (entirely silent)"
+        
+        if audio_start == 0:
+            # No trimming needed
+            return True, "no trimming needed"
+        
+        # Trim the audio
+        trimmed = audio[audio_start:]
+        
+        # Export back to the same file
+        trimmed.export(file_path, format="mp3", bitrate="192k")
+        
+        trimmed_seconds = audio_start / 1000.0
+        return True, f"trimmed {trimmed_seconds:.2f}s from start"
+        
     except Exception as e:
-        print(f"ERROR processing {mp3_path}: {e}", file=sys.stderr)
-
-    finally:
-        if temp_wav.exists():
-            temp_wav.unlink()
-
+        return False, f"error: {str(e)}"
 
 def main():
-    # ---------- SINGLE FILE MODE ----------
-    if SINGLE_FILE:
-        single_path = Path(SINGLE_FILE)
-        if not single_path.exists():
-            print(f"Error: SINGLE_FILE not found: {single_path}")
-            return
-        process_file(single_path)
+    """Process all audio files in the preprocessed directory."""
+    if not PREPROCESSED_DIR.exists():
+        print(f"Error: Directory not found: {PREPROCESSED_DIR}")
         return
-
-    print("No mode selected. Set SINGLE_FILE or enable batch mode.")
-
+    
+    print(f"Processing audio files in: {PREPROCESSED_DIR}")
+    print(f"Silence threshold: {SILENCE_THRESHOLD} dBFS")
+    print("-" * 60)
+    
+    processed = 0
+    trimmed = 0
+    deleted = 0
+    errors = 0
+    
+    # Process each song folder
+    for song_folder in sorted(PREPROCESSED_DIR.iterdir()):
+        if not song_folder.is_dir():
+            continue
+        
+        print(f"\n📁 {song_folder.name}")
+        
+        # Process each level file
+        for level in ["level1.mp3", "level2.mp3", "level3.mp3"]:
+            level_path = song_folder / level
+            
+            if not level_path.exists():
+                continue
+            
+            processed += 1
+            success, message = process_audio_file(level_path)
+            
+            if success:
+                if "trimmed" in message:
+                    trimmed += 1
+                    print(f"  ✓ {level}: {message}")
+                elif "deleted" in message:
+                    deleted += 1
+                    print(f"  🗑️  {level}: {message}")
+                else:
+                    print(f"  ⊙ {level}: {message}")
+            else:
+                errors += 1
+                print(f"  ✗ {level}: {message}")
+    
+    print("\n" + "=" * 60)
+    print(f"Summary:")
+    print(f"  Total processed: {processed}")
+    print(f"  Trimmed: {trimmed}")
+    print(f"  Deleted (silent): {deleted}")
+    print(f"  No change: {processed - trimmed - deleted - errors}")
+    print(f"  Errors: {errors}")
+    print("=" * 60)
 
 if __name__ == "__main__":
     main()

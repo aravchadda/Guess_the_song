@@ -196,31 +196,6 @@ function GamePageContent() {
     }
   }, [gameMode]);
 
-  const handleSkip = async () => {
-    if (!playId || currentLevel === 3 || isFinished) return;
-    
-    try {
-      const response = await skipLevel(playId);
-      audioManager.current.stop();
-      setIsPlaying(false);
-      stopVideoSequence();
-      // Use the level from backend response, or advance manually
-      const nextLevel = (response.currentLevel || currentLevel + 1) as 1 | 2 | 3;
-      setCurrentLevel(nextLevel);
-      setLastGuessedLevel(null);
-      setReveal(null);
-      setMessage('');
-    } catch (error: any) {
-      // If skip fails because game is finished, that's okay - just show message
-      if (error.message?.includes('finished')) {
-        setIsFinished(true);
-        setMessage(`❌ ${error.message}`);
-      } else {
-        setMessage(`❌ ${error.message}`);
-      }
-    }
-  };
-
   const handleGuess = async (guessText?: string) => {
     const finalGuess = guessText || guess;
     
@@ -610,6 +585,93 @@ function GamePageContent() {
     }
   }, [videosLoaded, preloadVideo]);
 
+  const handleSkip = useCallback(async () => {
+    if (!playId || currentLevel === 3 || isFinished || !song) return;
+    
+    try {
+      // Stop current playback
+      audioManager.current.stop();
+      setIsPlaying(false);
+      stopVideoSequence();
+      
+      const response = await skipLevel(playId);
+      // Use the level from backend response, or advance manually
+      const nextLevel = (response.currentLevel || currentLevel + 1) as 1 | 2 | 3;
+      setCurrentLevel(nextLevel);
+      setLastGuessedLevel(null);
+      setReveal(null);
+      setMessage('');
+      
+      // Load the next level audio, then auto-play
+      try {
+        await audioManager.current.loadLevel(
+          song.id,
+          nextLevel,
+          song.audio_urls,
+          API_URL
+        );
+        
+        // Ensure callback is set before playing
+        if (showGameScreen && showFullGameScreen) {
+          const handleAudioEnd = () => {
+            audioManager.current.stop();
+            setIsPlaying(false);
+            stopVideoSequence();
+          };
+          audioManager.current.setOnEnded(handleAudioEnd);
+        }
+        
+        // Auto-play after loading
+        audioManager.current.play(song.id, nextLevel);
+        setIsPlaying(true);
+        const levelNames = ['', 'drums', 'Instruments', 'vocals'];
+        setMessage(`🎵 Playing ${levelNames[nextLevel]}...`);
+        startVideoSequence();
+      } catch (loadError) {
+        console.error(`Error loading level ${nextLevel}:`, loadError);
+        setMessage(`❌ Error loading audio`);
+      }
+    } catch (error: any) {
+      // If skip fails because game is finished, that's okay - just show message
+      if (error.message?.includes('finished')) {
+        setIsFinished(true);
+        setMessage(`❌ ${error.message}`);
+      } else {
+        setMessage(`❌ ${error.message}`);
+      }
+    }
+  }, [playId, currentLevel, isFinished, song, stopVideoSequence, showGameScreen, showFullGameScreen, startVideoSequence]);
+
+  // Helper function to set up audio end callback
+  const setupAudioEndCallback = useCallback(() => {
+    if (!showGameScreen || !showFullGameScreen) {
+      return;
+    }
+
+    const handleAudioEnd = () => {
+      // Auto-pause when audio finishes
+      audioManager.current.stop();
+      setIsPlaying(false);
+      stopVideoSequence(); // This will play the off video
+    };
+
+    audioManager.current.setOnEnded(handleAudioEnd);
+  }, [showGameScreen, showFullGameScreen, stopVideoSequence]);
+
+  // Set up audio end callback to auto-pause and show off video
+  useEffect(() => {
+    if (!showGameScreen || !showFullGameScreen) {
+      audioManager.current.setOnEnded(null);
+      return;
+    }
+
+    setupAudioEndCallback();
+
+    return () => {
+      audioManager.current.setOnEnded(null);
+    };
+  }, [showGameScreen, showFullGameScreen, setupAudioEndCallback]);
+
   const handlePlay = useCallback(() => {
     if (!song) return;
     
@@ -618,13 +680,15 @@ function GamePageContent() {
       setIsPlaying(false);
       stopVideoSequence();
     } else {
+      // Ensure callback is set before playing
+      setupAudioEndCallback();
       audioManager.current.play(song.id, currentLevel);
       setIsPlaying(true);
       const levelNames = ['', 'drums', 'Instruments', 'vocals'];
       setMessage(`🎵 Playing ${levelNames[currentLevel]}...`);
       startVideoSequence();
     }
-  }, [song, isPlaying, currentLevel, stopVideoSequence, startVideoSequence]);
+  }, [song, isPlaying, currentLevel, stopVideoSequence, startVideoSequence, setupAudioEndCallback]);
 
   // Function to return to carousel from game screen
   const returnToCarousel = useCallback(() => {
@@ -852,18 +916,18 @@ function GamePageContent() {
     }
   }, [showGameScreen, isSpacebarHeld, cutToGameScreen]);
 
-  // Handle spacebar key press and release
+  // Handle spacebar key press and release, and 'p' key for play button
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input field
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.getAttribute('contenteditable') === 'true'
+      );
+      
       if (e.code === 'Space') {
-        // Don't trigger if user is typing in an input field
-        const activeElement = document.activeElement;
-        const isInputFocused = activeElement && (
-          activeElement.tagName === 'INPUT' ||
-          activeElement.tagName === 'TEXTAREA' ||
-          activeElement.getAttribute('contenteditable') === 'true'
-        );
-        
         if (isInputFocused) {
           return; // Allow normal spacebar behavior in input fields
         }
@@ -876,6 +940,16 @@ function GamePageContent() {
         } else {
           // If on carousel, start holding
           startCarouselHold();
+        }
+      } else if (e.key === 'p' || e.key === 'P') {
+        // 'p' key shortcut for play button - only on game screen
+        if (isInputFocused) {
+          return; // Allow normal 'p' behavior in input fields
+        }
+        
+        if (showGameScreen && showFullGameScreen && !isFinished) {
+          e.preventDefault();
+          handlePlay();
         }
       }
     };
@@ -905,7 +979,7 @@ function GamePageContent() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showGameScreen, isSpacebarHeld, startCarouselHold, stopCarouselHold, returnToCarousel]);
+  }, [showGameScreen, isSpacebarHeld, startCarouselHold, stopCarouselHold, returnToCarousel, handlePlay, showFullGameScreen, isFinished]);
 
   // Play random audio when carousel is visible
   useEffect(() => {
@@ -1329,32 +1403,33 @@ function GamePageContent() {
                 />
               </div>
               
-              {/* Play Button - Positioned absolutely within container, scales proportionally */}
+              {/* Play Button - Positioned absolutely within container, size relative to video height */}
               {showFullGameScreen && (
                 <button
                   onClick={handlePlay}
                   disabled={isFinished}
-                  className="absolute border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed rounded-full"
                   style={{
-                    bottom: '22%',
-                    left: '22%',
-                    width: 'clamp(3rem, 9%, 5rem)',
-                    height: 'clamp(3rem, 9%, 5rem)',
+                    bottom: '18.1%',
+                    left: '25%',
+                    height: '12%',
+                    aspectRatio: '1 / 1',
                     borderRadius: '50%',
+                    boxSizing: 'border-box',
                   }}
                 >
                   {isPlaying ? (
                     <span 
                       className="ml-1"
                       style={{
-                        fontSize: 'clamp(1rem, 4%, 1.5rem)',
+                        fontSize: 'clamp(0.875rem, 3%, 1.125rem)',
                       }}
                     >⏸</span>
                   ) : (
                     <span 
                       className="ml-1"
                       style={{
-                        fontSize: 'clamp(1rem, 4%, 1.5rem)',
+                        fontSize: 'clamp(0.875rem, 3%, 1.125rem)',
                       }}
                     >▶</span>
                   )}
