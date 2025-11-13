@@ -21,19 +21,15 @@ export default function Home(): JSX.Element {
   const [zoomed, setZoomed] = useState(false);
   const [triggered, setTriggered] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
-  const [selectedVideo, setSelectedVideo] = useState<string>("");
+  // Initialize with a random video immediately to avoid loading the first video
+  const [selectedVideo, setSelectedVideo] = useState<string>(() => {
+    return videos[Math.floor(Math.random() * videos.length)];
+  });
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-
-  // Random video and load it
-  useEffect(() => {
-    const randomVideo = videos[Math.floor(Math.random() * videos.length)];
-    setSelectedVideo(randomVideo);
-    setIsVideoLoading(true);
-  }, []);
 
   // Load video when selectedVideo changes
   useEffect(() => {
@@ -323,7 +319,7 @@ export default function Home(): JSX.Element {
       {/* --- TV WITH VIDEO --- */}
       <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ opacity: isVideoLoading ? 0 : 1 }}>
         <TVWithVideo 
-          videoSrc={selectedVideo || videos[0]} 
+          videoSrc={selectedVideo} 
           hold={hold}
           videoId="tv-video"
         />
