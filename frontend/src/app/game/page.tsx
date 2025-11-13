@@ -796,6 +796,8 @@ function GamePageContent() {
     };
   }, [isSpacebarHeld, showGameScreen]);
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => {
@@ -846,6 +848,22 @@ function GamePageContent() {
     if (showGameScreen) return;
     
     e.preventDefault();
+=======
+=======
+>>>>>>> Stashed changes
+  // Helper function to start holding (for carousel)
+  const startCarouselHold = useCallback(() => {
+    if (showGameScreen) return;
+    setIsSpacebarHeld(true);
+  }, [showGameScreen]);
+
+  // Helper function to stop holding and check if should transition
+  const stopCarouselHold = useCallback(() => {
+    if (showGameScreen || !isSpacebarHeld) return;
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     
     // Check if 2 seconds have passed
     const elapsed = spacebarHoldStartTimeRef.current 
@@ -860,7 +878,15 @@ function GamePageContent() {
     spacebarHoldStartTimeRef.current = null;
     setIsSpacebarHeld(false);
     
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     // Reset filters to play lows by default when released
+=======
+    // Reset filters to play lows by default when spacebar is released
+>>>>>>> Stashed changes
+=======
+    // Reset filters to play lows by default when spacebar is released
+>>>>>>> Stashed changes
     if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
       const ctx = audioCtxRef.current;
       const now = ctx.currentTime;
@@ -869,16 +895,36 @@ function GamePageContent() {
       highShelfFilterRef.current.gain.setValueAtTime(0, now);
       gainNodeRef.current.gain.setValueAtTime(1, now);
     }
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
     // Reset audio volume to default
     if (backgroundAudioRef.current) {
       backgroundAudioRef.current.volume = 0.3;
+=======
+    // Reset video volume to default
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.volume = 0.3;
+>>>>>>> Stashed changes
+=======
+    // Reset video volume to default
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.volume = 0.3;
+>>>>>>> Stashed changes
     }
     
     // Only transition to game screen if held for 2 seconds
     if (hasHeldFor2Seconds) {
       cutToGameScreen();
     }
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
   }, [showGameScreen, cutToGameScreen]);
+=======
+  }, [showGameScreen, isSpacebarHeld, cutToGameScreen]);
+>>>>>>> Stashed changes
+=======
+  }, [showGameScreen, isSpacebarHeld, cutToGameScreen]);
+>>>>>>> Stashed changes
 
   // Handle spacebar key press and release
   useEffect(() => {
@@ -903,7 +949,7 @@ function GamePageContent() {
           returnToCarousel();
         } else {
           // If on carousel, start holding
-        setIsSpacebarHeld(true);
+          startCarouselHold();
         }
       }
     };
@@ -923,6 +969,8 @@ function GamePageContent() {
         }
         
         e.preventDefault();
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
         
         // Check if 2 seconds have passed
         const elapsed = spacebarHoldStartTimeRef.current 
@@ -955,6 +1003,12 @@ function GamePageContent() {
         if (hasHeldFor2Seconds) {
         cutToGameScreen();
         }
+=======
+        stopCarouselHold();
+>>>>>>> Stashed changes
+=======
+        stopCarouselHold();
+>>>>>>> Stashed changes
       }
     };
 
@@ -964,7 +1018,7 @@ function GamePageContent() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showGameScreen, isSpacebarHeld, cutToGameScreen, returnToCarousel]);
+  }, [showGameScreen, isSpacebarHeld, startCarouselHold, stopCarouselHold, returnToCarousel]);
 
   // Play random audio when carousel is visible
   useEffect(() => {
@@ -1684,6 +1738,8 @@ function GamePageContent() {
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <motion.button
               onClick={showGameScreen ? returnToCarousel : undefined}
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
               onTouchStart={isMobile && !showGameScreen ? handleTouchStart : undefined}
               onTouchEnd={isMobile && !showGameScreen ? handleTouchEnd : undefined}
               className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none"
@@ -1702,6 +1758,52 @@ function GamePageContent() {
               whileTap={{ scale: 0.95 }}
             >
               <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
+=======
+=======
+>>>>>>> Stashed changes
+              onMouseDown={(e) => {
+                if (!showGameScreen) {
+                  e.preventDefault();
+                  startCarouselHold();
+                }
+              }}
+              onMouseUp={(e) => {
+                if (!showGameScreen) {
+                  e.preventDefault();
+                  stopCarouselHold();
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!showGameScreen) {
+                  e.preventDefault();
+                  stopCarouselHold();
+                }
+              }}
+              onTouchStart={(e) => {
+                if (!showGameScreen) {
+                  e.preventDefault();
+                  startCarouselHold();
+                }
+              }}
+              onTouchEnd={(e) => {
+                if (!showGameScreen) {
+                  e.preventDefault();
+                  stopCarouselHold();
+                }
+              }}
+              onTouchCancel={(e) => {
+                if (!showGameScreen) {
+                  e.preventDefault();
+                  stopCarouselHold();
+                }
+              }}
+              className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
+              style={{ minWidth: '80px' }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+              <span className="relative z-10">SPACE</span>
+>>>>>>> Stashed changes
               {!showGameScreen && (
                 <motion.span
                   className="absolute inset-0 rounded border-2 border-[#4A75AC]"

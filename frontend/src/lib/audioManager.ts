@@ -13,9 +13,11 @@ export class AudioManager {
   private audioContext: AudioContext | null = null;
   private buffers: Map<string, AudioBuffer> = new Map();
   private currentSource: AudioBufferSourceNode | null = null;
+  private currentGainNode: GainNode | null = null;
   private isPlaying: boolean = false;
   private playbackStartTime: number = 0;
   private currentBuffer: AudioBuffer | null = null;
+  private volumeGain: number = 1.5; // 50% louder (1.0 = normal, 1.5 = 50% increase)
   
   /**
    * Initialize audio context (requires user gesture)
@@ -124,16 +126,27 @@ export class AudioManager {
     // Create source node
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.audioContext.destination);
+    
+    // Create gain node to increase volume
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = this.volumeGain;
+    
+    // Connect: source -> gainNode -> destination
+    source.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    
+    // Store references
+    this.currentSource = source;
+    this.currentGainNode = gainNode;
     
     // Handle playback end
     source.onended = () => {
       this.isPlaying = false;
+      this.currentGainNode = null;
     };
     
     // Start playback
     source.start(0);
-    this.currentSource = source;
     this.currentBuffer = buffer;
     this.playbackStartTime = this.audioContext.currentTime;
     this.isPlaying = true;
@@ -151,6 +164,7 @@ export class AudioManager {
       }
       this.currentSource = null;
     }
+    this.currentGainNode = null;
     this.isPlaying = false;
     this.playbackStartTime = 0;
     this.currentBuffer = null;
