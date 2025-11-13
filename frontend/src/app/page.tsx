@@ -221,7 +221,6 @@ export default function Home(): JSX.Element {
 
   // Shared function to stop holding
   const stopHold = useCallback(() => {
-<<<<<<< Updated upstream
     if (triggered) return;
     
     if (holdTimer.current) {
@@ -247,19 +246,6 @@ export default function Home(): JSX.Element {
   }, [stopHold]);
 
   // Handle spacebar key press and release
-=======
-    if (!triggered && holdTimer.current) {
-      clearInterval(holdTimer.current);
-      holdTimer.current = null;
-      setHoldProgress(0);
-
-      if (filterRef.current && audioCtxRef.current) {
-        filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
-      }
-    }
-  }, [triggered]);
-
->>>>>>> Stashed changes
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.code === "Space" && !triggered && !holdTimer.current) {
@@ -397,7 +383,6 @@ export default function Home(): JSX.Element {
           <p className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <motion.button
-<<<<<<< Updated upstream
               onTouchStart={isMobile ? handleTouchStart : undefined}
               onTouchEnd={isMobile ? handleTouchEnd : undefined}
               className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none"
@@ -411,48 +396,11 @@ export default function Home(): JSX.Element {
                   ? 'clamp(0.875rem, 2vw, 1.125rem)'
                   : 'clamp(0.625rem, 1.2vw, 0.75rem)',
                 userSelect: 'none',
-=======
-              onMouseDown={(e) => {
-                e.preventDefault();
-                startHold();
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault();
-                stopHold();
-              }}
-              onMouseLeave={(e) => {
-                e.preventDefault();
-                stopHold();
-              }}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                startHold();
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                stopHold();
-              }}
-              onTouchCancel={(e) => {
-                e.preventDefault();
-                stopHold();
-              }}
-              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
-              style={{ 
-                minWidth: 'clamp(60px, 12vw, 100px)',
-                padding: 'clamp(0.125rem, 0.5vw, 0.375rem) clamp(0.75rem, 2vw, 1.5rem)',
-                fontSize: 'clamp(0.625rem, 1.2vw, 0.75rem)',
-                display: 'inline-block',
-                position: 'relative',
->>>>>>> Stashed changes
               }}
               whileHover={!isMobile ? { scale: 1.05 } : {}}
               whileTap={{ scale: 0.95 }}
             >
-<<<<<<< Updated upstream
               <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
-=======
-              <span className="relative z-10 pointer-events-none">SPACE</span>
->>>>>>> Stashed changes
               <motion.span
                 className="absolute inset-0 rounded border-2 border-[#4A75AC] pointer-events-none"
                 style={{

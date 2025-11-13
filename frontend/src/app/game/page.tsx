@@ -796,8 +796,6 @@ function GamePageContent() {
     };
   }, [isSpacebarHeld, showGameScreen]);
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   // Detect mobile device
   useEffect(() => {
     const checkMobile = () => {
@@ -811,46 +809,6 @@ function GamePageContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle mobile touch events for space button
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (showGameScreen) {
-      returnToCarousel();
-      return;
-    }
-    
-    e.preventDefault();
-    setIsSpacebarHeld(true);
-    spacebarHoldStartTimeRef.current = Date.now();
-    
-    // Start progress animation
-    const startTime = Date.now();
-    const updateProgress = () => {
-      if (spacebarHoldStartTimeRef.current) {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const progress = Math.min(elapsed / 2, 1);
-        setHoldProgress(progress);
-        
-        if (progress < 1 && spacebarHoldStartTimeRef.current) {
-          requestAnimationFrame(updateProgress);
-        } else if (progress >= 1) {
-          // 2 seconds passed, transition to game
-          cutToGameScreen();
-          setIsSpacebarHeld(false);
-          spacebarHoldStartTimeRef.current = null;
-          setHoldProgress(0);
-        }
-      }
-    };
-    updateProgress();
-  }, [showGameScreen, cutToGameScreen, returnToCarousel]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (showGameScreen) return;
-    
-    e.preventDefault();
-=======
-=======
->>>>>>> Stashed changes
   // Helper function to start holding (for carousel)
   const startCarouselHold = useCallback(() => {
     if (showGameScreen) return;
@@ -860,10 +818,6 @@ function GamePageContent() {
   // Helper function to stop holding and check if should transition
   const stopCarouselHold = useCallback(() => {
     if (showGameScreen || !isSpacebarHeld) return;
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     
     // Check if 2 seconds have passed
     const elapsed = spacebarHoldStartTimeRef.current 
@@ -878,15 +832,7 @@ function GamePageContent() {
     spacebarHoldStartTimeRef.current = null;
     setIsSpacebarHeld(false);
     
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    // Reset filters to play lows by default when released
-=======
     // Reset filters to play lows by default when spacebar is released
->>>>>>> Stashed changes
-=======
-    // Reset filters to play lows by default when spacebar is released
->>>>>>> Stashed changes
     if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
       const ctx = audioCtxRef.current;
       const now = ctx.currentTime;
@@ -895,36 +841,16 @@ function GamePageContent() {
       highShelfFilterRef.current.gain.setValueAtTime(0, now);
       gainNodeRef.current.gain.setValueAtTime(1, now);
     }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     // Reset audio volume to default
     if (backgroundAudioRef.current) {
       backgroundAudioRef.current.volume = 0.3;
-=======
-    // Reset video volume to default
-    if (backgroundVideoRef.current) {
-      backgroundVideoRef.current.volume = 0.3;
->>>>>>> Stashed changes
-=======
-    // Reset video volume to default
-    if (backgroundVideoRef.current) {
-      backgroundVideoRef.current.volume = 0.3;
->>>>>>> Stashed changes
     }
     
     // Only transition to game screen if held for 2 seconds
     if (hasHeldFor2Seconds) {
       cutToGameScreen();
     }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  }, [showGameScreen, cutToGameScreen]);
-=======
   }, [showGameScreen, isSpacebarHeld, cutToGameScreen]);
->>>>>>> Stashed changes
-=======
-  }, [showGameScreen, isSpacebarHeld, cutToGameScreen]);
->>>>>>> Stashed changes
 
   // Handle spacebar key press and release
   useEffect(() => {
@@ -969,46 +895,7 @@ function GamePageContent() {
         }
         
         e.preventDefault();
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        
-        // Check if 2 seconds have passed
-        const elapsed = spacebarHoldStartTimeRef.current 
-          ? (Date.now() - spacebarHoldStartTimeRef.current) / 1000 
-          : 0;
-        const hasHeldFor2Seconds = elapsed >= 2;
-        
-        // Reset speed and progress
-        speedMultiplierRef.current = 1;
-        setSpeedMultiplier(1);
-        setHoldProgress(0);
-        spacebarHoldStartTimeRef.current = null;
-        setIsSpacebarHeld(false);
-        
-      // Reset filters to play lows by default when spacebar is released
-      if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
-        const ctx = audioCtxRef.current;
-        const now = ctx.currentTime;
-        lowpassFilterRef.current.frequency.setValueAtTime(500, now);
-        highpassFilterRef.current.frequency.setValueAtTime(20, now);
-        highShelfFilterRef.current.gain.setValueAtTime(0, now);
-        gainNodeRef.current.gain.setValueAtTime(1, now);
-      }
-      // Reset audio volume to default
-      if (backgroundAudioRef.current) {
-        backgroundAudioRef.current.volume = 0.3;
-      }
-        
-        // Only transition to game screen if held for 2 seconds
-        if (hasHeldFor2Seconds) {
-        cutToGameScreen();
-        }
-=======
         stopCarouselHold();
->>>>>>> Stashed changes
-=======
-        stopCarouselHold();
->>>>>>> Stashed changes
       }
     };
 
@@ -1738,29 +1625,6 @@ function GamePageContent() {
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <motion.button
               onClick={showGameScreen ? returnToCarousel : undefined}
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-              onTouchStart={isMobile && !showGameScreen ? handleTouchStart : undefined}
-              onTouchEnd={isMobile && !showGameScreen ? handleTouchEnd : undefined}
-              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none"
-              style={{ 
-                minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(100px, 15vw, 140px)',
-                minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(36px, 5vw, 48px)',
-                padding: isMobile 
-                  ? 'clamp(0.75rem, 2vw, 1.25rem) clamp(1.5rem, 4vw, 2.5rem)'
-                  : 'clamp(0.5rem, 1vw, 0.75rem) clamp(1.25rem, 2.5vw, 2rem)',
-                fontSize: isMobile 
-                  ? 'clamp(0.875rem, 2vw, 1.125rem)'
-                  : 'clamp(0.625rem, 1.2vw, 0.875rem)',
-                userSelect: 'none',
-              }}
-              whileHover={!isMobile ? { scale: 1.05 } : {}}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
-=======
-=======
->>>>>>> Stashed changes
               onMouseDown={(e) => {
                 if (!showGameScreen) {
                   e.preventDefault();
@@ -1797,13 +1661,22 @@ function GamePageContent() {
                   stopCarouselHold();
                 }
               }}
-              className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
-              style={{ minWidth: '80px' }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-              <span className="relative z-10">SPACE</span>
->>>>>>> Stashed changes
+              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
+              style={{ 
+                minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(100px, 15vw, 140px)',
+                minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(36px, 5vw, 48px)',
+                padding: isMobile 
+                  ? 'clamp(0.75rem, 2vw, 1.25rem) clamp(1.5rem, 4vw, 2.5rem)'
+                  : 'clamp(0.5rem, 1vw, 0.75rem) clamp(1.25rem, 2.5vw, 2rem)',
+                fontSize: isMobile 
+                  ? 'clamp(0.875rem, 2vw, 1.125rem)'
+                  : 'clamp(0.625rem, 1.2vw, 0.875rem)',
+                userSelect: 'none',
+              }}
+              whileHover={!isMobile ? { scale: 1.05 } : {}}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
               {!showGameScreen && (
                 <motion.span
                   className="absolute inset-0 rounded border-2 border-[#4A75AC]"
