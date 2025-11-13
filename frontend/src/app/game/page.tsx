@@ -76,7 +76,9 @@ function GamePageContent() {
   const [showViews, setShowViews] = useState(false);
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
+  const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const speedMultiplierRef = useRef(1); // Ref for smooth animation updates without re-renders
   const lastUIUpdateTimeRef = useRef<number>(0); // For throttling UI updates
@@ -793,6 +795,90 @@ function GamePageContent() {
       }
     };
   }, [isSpacebarHeld, showGameScreen]);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth < 768; // md breakpoint
+      setIsMobile(isTouchDevice || isSmallScreen);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle mobile touch events for space button
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (showGameScreen) {
+      returnToCarousel();
+      return;
+    }
+    
+    e.preventDefault();
+    setIsSpacebarHeld(true);
+    spacebarHoldStartTimeRef.current = Date.now();
+    
+    // Start progress animation
+    const startTime = Date.now();
+    const updateProgress = () => {
+      if (spacebarHoldStartTimeRef.current) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const progress = Math.min(elapsed / 2, 1);
+        setHoldProgress(progress);
+        
+        if (progress < 1 && spacebarHoldStartTimeRef.current) {
+          requestAnimationFrame(updateProgress);
+        } else if (progress >= 1) {
+          // 2 seconds passed, transition to game
+          cutToGameScreen();
+          setIsSpacebarHeld(false);
+          spacebarHoldStartTimeRef.current = null;
+          setHoldProgress(0);
+        }
+      }
+    };
+    updateProgress();
+  }, [showGameScreen, cutToGameScreen, returnToCarousel]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (showGameScreen) return;
+    
+    e.preventDefault();
+    
+    // Check if 2 seconds have passed
+    const elapsed = spacebarHoldStartTimeRef.current 
+      ? (Date.now() - spacebarHoldStartTimeRef.current) / 1000 
+      : 0;
+    const hasHeldFor2Seconds = elapsed >= 2;
+    
+    // Reset speed and progress
+    speedMultiplierRef.current = 1;
+    setSpeedMultiplier(1);
+    setHoldProgress(0);
+    spacebarHoldStartTimeRef.current = null;
+    setIsSpacebarHeld(false);
+    
+    // Reset filters to play lows by default when released
+    if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
+      const ctx = audioCtxRef.current;
+      const now = ctx.currentTime;
+      lowpassFilterRef.current.frequency.setValueAtTime(500, now);
+      highpassFilterRef.current.frequency.setValueAtTime(20, now);
+      highShelfFilterRef.current.gain.setValueAtTime(0, now);
+      gainNodeRef.current.gain.setValueAtTime(1, now);
+    }
+    // Reset audio volume to default
+    if (backgroundAudioRef.current) {
+      backgroundAudioRef.current.volume = 0.3;
+    }
+    
+    // Only transition to game screen if held for 2 seconds
+    if (hasHeldFor2Seconds) {
+      cutToGameScreen();
+    }
+  }, [showGameScreen, cutToGameScreen]);
 
   // Handle spacebar key press and release
   useEffect(() => {
@@ -1594,15 +1680,27 @@ function GamePageContent() {
           transition={{ delay: 0 }}
         >
           <p className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
-            Hold{" "}
+            {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <motion.button
               onClick={showGameScreen ? returnToCarousel : undefined}
-              className="relative text-[10px] sm:text-xs px-4 sm:px-6 py-0.5 rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
-              style={{ minWidth: '80px' }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-              <span className="relative z-10">SPACE</span>
+              onTouchStart={isMobile && !showGameScreen ? handleTouchStart : undefined}
+              onTouchEnd={isMobile && !showGameScreen ? handleTouchEnd : undefined}
+              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none"
+              style={{ 
+                minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(100px, 15vw, 140px)',
+                minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(36px, 5vw, 48px)',
+                padding: isMobile 
+                  ? 'clamp(0.75rem, 2vw, 1.25rem) clamp(1.5rem, 4vw, 2.5rem)'
+                  : 'clamp(0.5rem, 1vw, 0.75rem) clamp(1.25rem, 2.5vw, 2rem)',
+                fontSize: isMobile 
+                  ? 'clamp(0.875rem, 2vw, 1.125rem)'
+                  : 'clamp(0.625rem, 1.2vw, 0.875rem)',
+                userSelect: 'none',
+              }}
+              whileHover={!isMobile ? { scale: 1.05 } : {}}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
               {!showGameScreen && (
                 <motion.span
                   className="absolute inset-0 rounded border-2 border-[#4A75AC]"

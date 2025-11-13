@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import TVWithVideo from "@/components/TVWithVideo";
@@ -23,6 +23,7 @@ export default function Home(): JSX.Element {
   const [holdProgress, setHoldProgress] = useState(0);
   const [selectedVideo, setSelectedVideo] = useState<string>("");
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -116,6 +117,19 @@ export default function Home(): JSX.Element {
     };
   }, [selectedVideo]);
 
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth < 768; // md breakpoint
+      setIsMobile(isTouchDevice || isSmallScreen);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Handle tab visibility (mute/resume)
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -138,88 +152,116 @@ export default function Home(): JSX.Element {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
+  // Shared function to start holding
+  const startHold = useCallback(async () => {
+    if (triggered || holdTimer.current) return;
+    
+    let startTime = Date.now();
+    const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+
+    if (video) {
+      // 🎵 Setup audio context & filter
+      if (!audioCtxRef.current) {
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaElementSource(video);
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = "highpass";
+        filter.frequency.value = 2000;
+        source.connect(filter);
+        filter.connect(audioCtx.destination);
+        audioCtxRef.current = audioCtx;
+        filterRef.current = filter;
+      }
+
+      video.muted = false;
+      try {
+        await audioCtxRef.current!.resume();
+        await video.play();
+      } catch (err) {
+        console.log("Playback error:", err);
+      }
+
+      // Smooth fade-in for volume
+      video.volume = 0;
+      const fadeIn = setInterval(() => {
+        if (video.volume < 1) video.volume = Math.min(1, video.volume + 0.05);
+        else clearInterval(fadeIn);
+      }, 100);
+    }
+
+    // Hold logic (2 seconds)
+    holdTimer.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / 2000, 1);
+      setHoldProgress(progress);
+
+      // 🎚️ Fade out high-pass
+      if (filterRef.current && audioCtxRef.current) {
+        const targetFreq = 2000 - progress * 2000;
+        filterRef.current.frequency.setValueAtTime(
+          Math.max(targetFreq, 0),
+          audioCtxRef.current.currentTime
+        );
+      }
+
+      if (progress >= 1) {
+        clearInterval(holdTimer.current!);
+        holdTimer.current = null;
+        setTriggered(true);
+        setHold(true);
+
+        // Turn off filter
+        if (filterRef.current && audioCtxRef.current) {
+          filterRef.current.frequency.setValueAtTime(0, audioCtxRef.current.currentTime);
+        }
+
+        // Start zoom animation
+        setTimeout(() => {
+          setZoomed(true);
+        }, 3500);
+      }
+    }, 20);
+  }, [triggered]);
+
+  // Shared function to stop holding
+  const stopHold = useCallback(() => {
+    if (triggered) return;
+    
+    if (holdTimer.current) {
+      clearInterval(holdTimer.current);
+      holdTimer.current = null;
+    }
+    setHoldProgress(0);
+
+    if (filterRef.current && audioCtxRef.current) {
+      filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
+    }
+  }, [triggered]);
+
+  // Handle mobile touch events
+  const handleTouchStart = useCallback(async (e: React.TouchEvent) => {
+    e.preventDefault();
+    await startHold();
+  }, [startHold]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    stopHold();
+  }, [stopHold]);
+
+  // Handle spacebar key press and release
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.code === "Space" && !triggered && !holdTimer.current) {
-        let startTime = Date.now();
-        const video = document.getElementById("tv-video") as HTMLVideoElement | null;
-
-        if (video) {
-          // 🎵 Setup audio context & filter
-          if (!audioCtxRef.current) {
-            const audioCtx = new AudioContext();
-            const source = audioCtx.createMediaElementSource(video);
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = "highpass";
-            filter.frequency.value = 2000;
-            source.connect(filter);
-            filter.connect(audioCtx.destination);
-            audioCtxRef.current = audioCtx;
-            filterRef.current = filter;
-          }
-
-          video.muted = false;
-          try {
-            await audioCtxRef.current!.resume();
-            await video.play();
-          } catch (err) {
-            console.log("Playback error:", err);
-          }
-
-          // Smooth fade-in for volume
-          video.volume = 0;
-          const fadeIn = setInterval(() => {
-            if (video.volume < 1) video.volume = Math.min(1, video.volume + 0.05);
-            else clearInterval(fadeIn);
-          }, 100);
-        }
-
-        // Hold logic (2 seconds)
-        holdTimer.current = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          const progress = Math.min(elapsed / 2000, 1);
-          setHoldProgress(progress);
-
-          // 🎚️ Fade out high-pass
-          if (filterRef.current && audioCtxRef.current) {
-            const targetFreq = 2000 - progress * 2000;
-            filterRef.current.frequency.setValueAtTime(
-              Math.max(targetFreq, 0),
-              audioCtxRef.current.currentTime
-            );
-          }
-
-          if (progress >= 1) {
-            clearInterval(holdTimer.current!);
-            holdTimer.current = null;
-            setTriggered(true);
-            setHold(true);
-
-            // Turn off filter
-            if (filterRef.current && audioCtxRef.current) {
-              filterRef.current.frequency.setValueAtTime(0, audioCtxRef.current.currentTime);
-            }
-
-            // Start zoom animation
-            setTimeout(() => {
-              setZoomed(true);
-            }, 3500);
-          }
-        }, 20);
+        e.preventDefault();
+        await startHold();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === "Space" && !triggered) {
-        if (holdTimer.current) {
-          clearInterval(holdTimer.current);
-          holdTimer.current = null;
-        }
-        setHoldProgress(0);
-
-        if (filterRef.current && audioCtxRef.current) {
-          filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
-        }
+        e.preventDefault();
+        stopHold();
       }
     };
 
@@ -229,7 +271,7 @@ export default function Home(): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [triggered]);
+  }, [triggered, startHold, stopHold]);
 
   const letterVariants = {
     hidden: { opacity: 0, y: 30 },
@@ -343,16 +385,26 @@ export default function Home(): JSX.Element {
           transition={{ delay: 1.6 }}
         >
           <p className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
-            Hold{" "}
+            {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <motion.button
-              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden"
+              onTouchStart={isMobile ? handleTouchStart : undefined}
+              onTouchEnd={isMobile ? handleTouchEnd : undefined}
+              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none"
               style={{ 
-                minWidth: 'clamp(60px, 12vw, 100px)',
-                padding: 'clamp(0.125rem, 0.5vw, 0.375rem) clamp(0.75rem, 2vw, 1.5rem)',
-                fontSize: 'clamp(0.625rem, 1.2vw, 0.75rem)',
+                minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(80px, 12vw, 120px)',
+                minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(32px, 4vw, 44px)',
+                padding: isMobile 
+                  ? 'clamp(0.75rem, 2vw, 1.25rem) clamp(1.5rem, 4vw, 2.5rem)'
+                  : 'clamp(0.25rem, 0.5vw, 0.5rem) clamp(1rem, 2vw, 1.5rem)',
+                fontSize: isMobile 
+                  ? 'clamp(0.875rem, 2vw, 1.125rem)'
+                  : 'clamp(0.625rem, 1.2vw, 0.75rem)',
+                userSelect: 'none',
               }}
+              whileHover={!isMobile ? { scale: 1.05 } : {}}
+              whileTap={{ scale: 0.95 }}
             >
-              <span className="relative z-10">SPACE</span>
+              <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
               <motion.span
                 className="absolute inset-0 rounded border-2 border-[#4A75AC]"
                 style={{
