@@ -3,6 +3,7 @@ import { Inter, Press_Start_2P } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import OrientationLock from '@/components/OrientationLock'
 
 const inter = Inter({ subsets: ['latin'] })
 const pressStart2P = Press_Start_2P({ 
@@ -24,9 +25,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} ${pressStart2P.variable}`}>
-        <Header />
-        {children}
-        <Footer />
+        <OrientationLock>
+          <Header />
+          {children}
+          <Footer />
+        </OrientationLock>
       </body>
     </html>
   )
