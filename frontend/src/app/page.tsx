@@ -22,15 +22,99 @@ export default function Home(): JSX.Element {
   const [triggered, setTriggered] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
   const [selectedVideo, setSelectedVideo] = useState<string>("");
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Random video
+  // Random video and load it
   useEffect(() => {
     const randomVideo = videos[Math.floor(Math.random() * videos.length)];
     setSelectedVideo(randomVideo);
+    setIsVideoLoading(true);
   }, []);
+
+  // Load video when selectedVideo changes
+  useEffect(() => {
+    if (!selectedVideo) return;
+
+    let timeoutId: NodeJS.Timeout;
+    let retryCount = 0;
+    const maxRetries = 50; // 5 seconds max wait
+
+    // Wait for video element to be available
+    const checkVideo = () => {
+      const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+      if (!video) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          setTimeout(checkVideo, 100);
+        } else {
+          // Fallback: hide loading after max retries
+          setIsVideoLoading(false);
+        }
+        return;
+      }
+
+      const handleCanPlayThrough = () => {
+        setIsVideoLoading(false);
+        if (timeoutId) clearTimeout(timeoutId);
+        video.removeEventListener('canplaythrough', handleCanPlayThrough);
+        video.removeEventListener('error', handleError);
+        video.removeEventListener('loadeddata', handleLoadedData);
+      };
+
+      const handleLoadedData = () => {
+        // If video has enough data, consider it loaded
+        if (video.readyState >= 3) {
+          setIsVideoLoading(false);
+          if (timeoutId) clearTimeout(timeoutId);
+          video.removeEventListener('canplaythrough', handleCanPlayThrough);
+          video.removeEventListener('error', handleError);
+          video.removeEventListener('loadeddata', handleLoadedData);
+        }
+      };
+
+      const handleError = () => {
+        setIsVideoLoading(false);
+        if (timeoutId) clearTimeout(timeoutId);
+        video.removeEventListener('canplaythrough', handleCanPlayThrough);
+        video.removeEventListener('error', handleError);
+        video.removeEventListener('loadeddata', handleLoadedData);
+        console.error('Error loading video:', selectedVideo);
+      };
+
+      // Check if already loaded
+      if (video.readyState >= 3) {
+        setIsVideoLoading(false);
+        return;
+      }
+
+      // Fallback timeout - hide loading after 10 seconds
+      timeoutId = setTimeout(() => {
+        setIsVideoLoading(false);
+        console.warn('Video loading timeout, hiding loading screen');
+      }, 10000);
+
+      video.addEventListener('canplaythrough', handleCanPlayThrough, { once: true });
+      video.addEventListener('loadeddata', handleLoadedData, { once: true });
+      video.addEventListener('error', handleError, { once: true });
+
+      // Set video source and load if needed
+      const currentSrc = video.src.split('/').pop() || '';
+      const newSrc = selectedVideo.split('/').pop() || '';
+      if (currentSrc !== newSrc) {
+        video.src = selectedVideo;
+        video.load();
+      }
+    };
+
+    checkVideo();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [selectedVideo]);
 
   // Handle tab visibility (mute/resume)
   useEffect(() => {
@@ -173,8 +257,29 @@ export default function Home(): JSX.Element {
 
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[#0E0E10] overflow-hidden">
+      {/* Loading Screen */}
+      <AnimatePresence>
+        {isVideoLoading && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-[#0E0E10]"
+          >
+            <div className="text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"
+              />
+              <p className="text-white text-sm opacity-70">Loading...</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* --- TV WITH VIDEO --- */}
-      <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ opacity: isVideoLoading ? 0 : 1 }}>
         <TVWithVideo 
           videoSrc={selectedVideo || videos[0]} 
           hold={hold}
@@ -183,19 +288,20 @@ export default function Home(): JSX.Element {
       </div>
 
       {/* --- TEXT CONTENT --- */}
-      <motion.div
-        className="absolute z-20 text-center px-4 sm:px-6 text-white"
-        style={{
-          left: 'calc(50% - clamp(200px, 50vw, 800px) * 0.394)',
-          top: 'calc(50% - clamp(200px, 50vw, 800px) * 0.15)',
-          transform: 'translate(-50%, -50%)',
-        }}
-        animate={{
-          opacity: hold ? 0 : 1,
-          scale: hold ? 0.95 : 1,
-        }}
-        transition={{ duration: 0.8, ease: "easeInOut" }}
-      >
+      {!isVideoLoading && (
+        <motion.div
+          className="absolute z-20 text-center px-4 sm:px-6 text-white"
+          style={{
+            left: 'calc(50% - clamp(200px, 50vw, 800px) * 0.394)',
+            top: 'calc(50% - clamp(200px, 50vw, 800px) * 0.15)',
+            transform: 'translate(-50%, -50%)',
+          }}
+          animate={{
+            opacity: hold ? 0 : 1,
+            scale: hold ? 0.95 : 1,
+          }}
+          transition={{ duration: 0.8, ease: "easeInOut" }}
+        >
         <h1 className="font-extrabold mb-2 select-none flex justify-center flex-wrap" style={{ fontSize: 'clamp(1.8rem, 7.2vw, 7.2rem)' }}>
           {titleLetters.map((letter, i) => (
             <motion.span
@@ -221,10 +327,11 @@ export default function Home(): JSX.Element {
         >
           Test how wide your music pallete is.
         </motion.p>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
-      {!zoomed && !triggered && (
+      {!isVideoLoading && !zoomed && !triggered && (
         <motion.div
           className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2 w-full max-w-[90vw]"
           style={{

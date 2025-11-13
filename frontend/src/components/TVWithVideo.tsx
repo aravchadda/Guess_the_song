@@ -34,6 +34,7 @@ export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video" }: TV
           loop
           muted
           playsInline
+          preload="auto"
           className="w-full h-full object-cover"
           style={{ 
             opacity: 0.3,

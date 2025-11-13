@@ -75,6 +75,7 @@ function GamePageContent() {
   const [showYear, setShowYear] = useState(false);
   const [showViews, setShowViews] = useState(false);
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
+  const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const speedMultiplierRef = useRef(1); // Ref for smooth animation updates without re-renders
@@ -94,6 +95,14 @@ function GamePageContent() {
   const runningVideoRef = useRef<HTMLVideoElement | null>(null);
   const offVideoRef = useRef<HTMLVideoElement | null>(null);
   const videoSequenceRef = useRef<'idle' | 'on' | 'running' | 'off'>('idle');
+  
+  // Video loading states
+  const [videosLoaded, setVideosLoaded] = useState({
+    on: false,
+    running: false,
+    off: false,
+    overlay: false,
+  });
   
   // Game state
   const [playId, setPlayId] = useState<string | null>(null);
@@ -413,8 +422,39 @@ function GamePageContent() {
     }, 2000);
   }, [showGameScreen, initializeGame]);
 
+  // Preload video with proper buffering
+  const preloadVideo = useCallback((video: HTMLVideoElement, src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (video.readyState >= 3) { // HAVE_FUTURE_DATA
+        resolve();
+        return;
+      }
+
+      const handleCanPlayThrough = () => {
+        video.removeEventListener('canplaythrough', handleCanPlayThrough);
+        video.removeEventListener('error', handleError);
+        resolve();
+      };
+
+      const handleError = () => {
+        video.removeEventListener('canplaythrough', handleCanPlayThrough);
+        video.removeEventListener('error', handleError);
+        reject(new Error(`Failed to load video: ${src}`));
+      };
+
+      video.addEventListener('canplaythrough', handleCanPlayThrough, { once: true });
+      video.addEventListener('error', handleError, { once: true });
+      
+      if (video.src !== src) {
+        video.src = src;
+      }
+      
+      video.load();
+    });
+  }, []);
+
   // Handle video sequence for game screen background
-  const startVideoSequence = useCallback(() => {
+  const startVideoSequence = useCallback(async () => {
     if (!onVideoRef.current || !runningVideoRef.current) return;
     
     // Stop all videos first
@@ -435,35 +475,70 @@ function GamePageContent() {
       offVideoRef.current.style.display = 'none';
     }
     
-    // Show and play on video
-    onVideoRef.current.style.display = 'block';
-    onVideoRef.current.currentTime = 0;
-    videoSequenceRef.current = 'on';
+    // Ensure on video is loaded before playing
+    try {
+      if (!videosLoaded.on && onVideoRef.current) {
+        await preloadVideo(onVideoRef.current, '/on.mp4');
+        setVideosLoaded(prev => ({ ...prev, on: true }));
+      }
+    } catch (err) {
+      console.error('Error preloading on video:', err);
+    }
     
-    onVideoRef.current.play().catch(err => {
-      console.log('Error playing on video:', err);
-    });
+    // Show and play on video
+    if (onVideoRef.current) {
+      onVideoRef.current.style.display = 'block';
+      onVideoRef.current.currentTime = 0;
+      videoSequenceRef.current = 'on';
+      
+      // Preload running video in background while on video plays
+      if (runningVideoRef.current && !videosLoaded.running) {
+        preloadVideo(runningVideoRef.current, '/running.mp4')
+          .then(() => setVideosLoaded(prev => ({ ...prev, running: true })))
+          .catch(err => console.error('Error preloading running video:', err));
+      }
+      
+      try {
+        await onVideoRef.current.play();
+      } catch (err) {
+        console.log('Error playing on video:', err);
+      }
+    }
     
     // When on video ends, switch to running video
-    const handleOnVideoEnd = () => {
+    const handleOnVideoEnd = async () => {
       if (!onVideoRef.current || !runningVideoRef.current) return;
+      
+      // Ensure running video is loaded
+      try {
+        if (!videosLoaded.running) {
+          await preloadVideo(runningVideoRef.current, '/running.mp4');
+          setVideosLoaded(prev => ({ ...prev, running: true }));
+        }
+      } catch (err) {
+        console.error('Error preloading running video:', err);
+      }
       
       onVideoRef.current.style.display = 'none';
       runningVideoRef.current.style.display = 'block';
       runningVideoRef.current.currentTime = 0;
       videoSequenceRef.current = 'running';
       
-      runningVideoRef.current.play().catch(err => {
+      try {
+        await runningVideoRef.current.play();
+      } catch (err) {
         console.log('Error playing running video:', err);
-      });
+      }
       
       onVideoRef.current.removeEventListener('ended', handleOnVideoEnd);
     };
     
-    onVideoRef.current.addEventListener('ended', handleOnVideoEnd, { once: true });
-  }, []);
+    if (onVideoRef.current) {
+      onVideoRef.current.addEventListener('ended', handleOnVideoEnd, { once: true });
+    }
+  }, [videosLoaded, preloadVideo]);
 
-  const stopVideoSequence = useCallback(() => {
+  const stopVideoSequence = useCallback(async () => {
     if (!onVideoRef.current || !runningVideoRef.current || !offVideoRef.current) return;
     
     // Stop running video
@@ -480,30 +555,58 @@ function GamePageContent() {
       onVideoRef.current.style.display = 'none';
     }
     
-    // Show and play off video
-    offVideoRef.current.style.display = 'block';
-    offVideoRef.current.currentTime = 0;
-    videoSequenceRef.current = 'off';
+    // Ensure off video is loaded before playing
+    try {
+      if (!videosLoaded.off && offVideoRef.current) {
+        await preloadVideo(offVideoRef.current, '/off.mp4');
+        setVideosLoaded(prev => ({ ...prev, off: true }));
+      }
+    } catch (err) {
+      console.error('Error preloading off video:', err);
+    }
     
-    offVideoRef.current.play().catch(err => {
-      console.log('Error playing off video:', err);
-    });
+    // Show and play off video
+    if (offVideoRef.current) {
+      offVideoRef.current.style.display = 'block';
+      offVideoRef.current.currentTime = 0;
+      videoSequenceRef.current = 'off';
+      
+      try {
+        await offVideoRef.current.play();
+      } catch (err) {
+        console.log('Error playing off video:', err);
+      }
+    }
     
     // When off video ends, show first frame of on video
-    const handleOffVideoEnd = () => {
+    const handleOffVideoEnd = async () => {
       if (!onVideoRef.current || !offVideoRef.current) return;
       
+      // Ensure on video is ready
+      try {
+        if (!videosLoaded.on && onVideoRef.current) {
+          await preloadVideo(onVideoRef.current, '/on.mp4');
+          setVideosLoaded(prev => ({ ...prev, on: true }));
+        }
+      } catch (err) {
+        console.error('Error preloading on video:', err);
+      }
+      
       offVideoRef.current.style.display = 'none';
-      onVideoRef.current.style.display = 'block';
-      onVideoRef.current.currentTime = 0;
-      onVideoRef.current.pause(); // Pause at first frame
+      if (onVideoRef.current) {
+        onVideoRef.current.style.display = 'block';
+        onVideoRef.current.currentTime = 0;
+        onVideoRef.current.pause(); // Pause at first frame
+      }
       videoSequenceRef.current = 'idle';
       
       offVideoRef.current.removeEventListener('ended', handleOffVideoEnd);
     };
     
-    offVideoRef.current.addEventListener('ended', handleOffVideoEnd, { once: true });
-  }, []);
+    if (offVideoRef.current) {
+      offVideoRef.current.addEventListener('ended', handleOffVideoEnd, { once: true });
+    }
+  }, [videosLoaded, preloadVideo]);
 
   const handlePlay = useCallback(() => {
     if (!song) return;
@@ -955,9 +1058,17 @@ function GamePageContent() {
   // Control overlay video - always playing
   useEffect(() => {
     if (overlayVideoRef.current) {
-      overlayVideoRef.current.play().catch(console.error);
+      // Preload overlay video
+      preloadVideo(overlayVideoRef.current, '/overlayGrain.mp4')
+        .then(() => {
+          setVideosLoaded(prev => ({ ...prev, overlay: true }));
+          if (overlayVideoRef.current) {
+            overlayVideoRef.current.play().catch(console.error);
+          }
+        })
+        .catch(err => console.error('Error preloading overlay video:', err));
     }
-  }, []);
+  }, [preloadVideo]);
 
   // Auto-hide popup after 3 seconds
   useEffect(() => {
@@ -972,12 +1083,46 @@ function GamePageContent() {
   // Initialize game screen background videos
   useEffect(() => {
     if (showGameScreen && showFullGameScreen) {
-      // Initialize videos to show first frame of on.mp4
-      if (onVideoRef.current) {
+      setIsGameVideoLoading(true);
+      
+      // Timeout fallback
+      const timeoutId = setTimeout(() => {
+        setIsGameVideoLoading(false);
+        console.warn('Game video loading timeout, hiding loading screen');
+      }, 10000);
+      
+      // Preload on video first (most important - shown initially)
+      if (onVideoRef.current && !videosLoaded.on) {
+        preloadVideo(onVideoRef.current, '/on.mp4')
+          .then(() => {
+            clearTimeout(timeoutId);
+            setVideosLoaded(prev => ({ ...prev, on: true }));
+            setIsGameVideoLoading(false);
+            if (onVideoRef.current) {
+              onVideoRef.current.currentTime = 0;
+              onVideoRef.current.pause();
+              onVideoRef.current.style.display = 'block';
+            }
+          })
+          .catch(err => {
+            clearTimeout(timeoutId);
+            console.error('Error preloading on video:', err);
+            setIsGameVideoLoading(false);
+          });
+      } else if (onVideoRef.current) {
+        clearTimeout(timeoutId);
+        setIsGameVideoLoading(false);
         onVideoRef.current.currentTime = 0;
         onVideoRef.current.pause();
         onVideoRef.current.style.display = 'block';
+      } else {
+        // If video ref doesn't exist, hide loading after a short delay
+        setTimeout(() => {
+          clearTimeout(timeoutId);
+          setIsGameVideoLoading(false);
+        }, 500);
       }
+      
       if (runningVideoRef.current) {
         runningVideoRef.current.style.display = 'none';
       }
@@ -985,8 +1130,12 @@ function GamePageContent() {
         offVideoRef.current.style.display = 'none';
       }
       videoSequenceRef.current = 'idle';
+      
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }
-  }, [showGameScreen, showFullGameScreen]);
+  }, [showGameScreen, showFullGameScreen, videosLoaded.on, preloadVideo]);
 
   // Watch for isPlaying changes to handle video sequence
   useEffect(() => {
@@ -1073,12 +1222,34 @@ function GamePageContent() {
           muted
           playsInline
           autoPlay
+          preload="metadata"
           className="absolute inset-0 w-full h-full object-cover z-[1]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.2 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0 }}
         />
+      </AnimatePresence>
+
+      {/* Loading Screen for Game Video */}
+      <AnimatePresence>
+        {isGameVideoLoading && showGameScreen && showFullGameScreen && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 z-[3] flex items-center justify-center bg-[#0E0E10]"
+          >
+            <div className="text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"
+              />
+              <p className="text-white text-sm opacity-70">Loading game...</p>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Game Screen Background Videos */}
@@ -1101,9 +1272,14 @@ function GamePageContent() {
                   src="/on.mp4"
                   playsInline
                   muted
-                  preload="auto"
+                  preload="metadata"
                   className="w-full h-full object-contain"
                   style={{ display: 'none' }}
+                  onLoadedMetadata={() => {
+                    if (onVideoRef.current) {
+                      onVideoRef.current.currentTime = 0;
+                    }
+                  }}
                 />
                 <video
                   ref={runningVideoRef}
@@ -1111,7 +1287,7 @@ function GamePageContent() {
                   loop
                   playsInline
                   muted
-                  preload="auto"
+                  preload="none"
                   className="w-full h-full object-contain"
                   style={{ display: 'none' }}
                 />
@@ -1120,7 +1296,7 @@ function GamePageContent() {
                   src="/off.mp4"
                   playsInline
                   muted
-                  preload="auto"
+                  preload="none"
                   className="w-full h-full object-contain"
                   style={{ display: 'none' }}
                 />
