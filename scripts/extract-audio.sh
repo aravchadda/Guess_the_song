@@ -8,15 +8,15 @@ cd "$(dirname "$0")/../frontend/public" || exit 1
 echo "🎵 Extracting audio from song videos..."
 echo ""
 
-# List of video files to extract audio from
+# List of video files to extract audio from (from compressed folder)
 videos=(
-  "ariana.mp4"
-  "bad-bunny.mp4"
-  "kendrick.mp4"
-  "single-ladies.mp4"
-  "royals.mp4"
-  "hard-times.mp4"
-  "tame-impala.mp4"
+  "compressed/ariana.mp4"
+  "compressed/bad-bunny.mp4"
+  "compressed/kendrick.mp4"
+  "compressed/single-ladies.mp4"
+  "compressed/royals.mp4"
+  "compressed/hard-times.mp4"
+  "compressed/tame-impala.mp4"
 )
 
 # Create audio directory if it doesn't exist
@@ -25,7 +25,9 @@ mkdir -p audio
 # Function to extract audio from a video
 extract_audio() {
     local video="$1"
-    local audio_name="${video%.mp4}.mp3"
+    # Extract just the filename without path and extension
+    local basename=$(basename "$video" .mp4)
+    local audio_name="${basename}.mp3"
     local output="audio/$audio_name"
     
     if [ ! -f "$video" ]; then

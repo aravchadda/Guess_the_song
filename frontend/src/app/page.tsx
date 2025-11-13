@@ -5,15 +5,15 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import TVWithVideo from "@/components/TVWithVideo";
 
-// List of all videos in public folder
+// List of all videos in compressed folder
 const videos = [
-  "/ariana.mp4",
-  "/bad-bunny.mp4",
-  "/kendrick.mp4",
-  "/single-ladies.mp4",
-  "/royals.mp4",
-  "/hard-times.mp4",
-  "/tame-impala.mp4",
+  "/compressed/ariana.mp4",
+  "/compressed/bad-bunny.mp4",
+  "/compressed/kendrick.mp4",
+  "/compressed/single-ladies.mp4",
+  "/compressed/royals.mp4",
+  "/compressed/hard-times.mp4",
+  "/compressed/tame-impala.mp4",
 ];
 
 export default function Home(): JSX.Element {
