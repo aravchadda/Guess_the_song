@@ -1346,8 +1346,8 @@ function GamePageContent() {
             <div 
               className="relative"
               style={{
-                width: 'clamp(200px, 50vw, 800px)',
-                maxWidth: '800px',
+                width: 'clamp(300px, 65vw, 1000px)',
+                maxWidth: '1000px',
                 aspectRatio: '16/9', // Maintain aspect ratio like TV component
               }}
             >
@@ -1393,12 +1393,13 @@ function GamePageContent() {
                 <button
                   onClick={handlePlay}
                   disabled={isFinished}
-                  className="absolute rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    bottom: '26.5%',
-                    left: '17.6%',
-                    width: 'clamp(2.5rem, 8%, 4.5rem)',
-                    height: 'clamp(2.5rem, 8%, 4.5rem)',
+                    bottom: '22%',
+                    left: '22%',
+                    width: 'clamp(3rem, 9%, 5rem)',
+                    height: 'clamp(3rem, 9%, 5rem)',
+                    borderRadius: '50%',
                   }}
                 >
                   {isPlaying ? (
