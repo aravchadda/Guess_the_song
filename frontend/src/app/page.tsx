@@ -7,13 +7,13 @@ import TVWithVideo from "@/components/TVWithVideo";
 
 // List of all videos in public folder
 const videos = [
-  "/ariana.MOV",
-  "/bad-bunny.MOV",
-  "/kendrick.MOV",
-  "/single-ladies.MOV",
-  "/royals.MOV",
-  "/hard-times.MOV",
-  "/tame-impala.MOV",
+  "/ariana.mp4",
+  "/bad-bunny.mp4",
+  "/kendrick.mp4",
+  "/single-ladies.mp4",
+  "/royals.mp4",
+  "/hard-times.mp4",
+  "/tame-impala.mp4",
 ];
 
 export default function Home(): JSX.Element {

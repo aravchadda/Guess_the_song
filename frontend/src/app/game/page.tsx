@@ -51,15 +51,15 @@ const carouselItems = albumCovers.map(cover => ({
   name: cover,
 }));
 
-// List of videos for background audio
-const videos = [
-  "/ariana.MOV",
-  "/bad-bunny.MOV",
-  "/kendrick.MOV",
-  "/single-ladies.MOV",
-  "/royals.MOV",
-  "/hard-times.MOV",
-  "/tame-impala.MOV",
+// List of audio files for background carousel
+const audioFiles = [
+  "/audio/ariana.mp3",
+  "/audio/bad-bunny.mp3",
+  "/audio/kendrick.mp3",
+  "/audio/single-ladies.mp3",
+  "/audio/royals.mp3",
+  "/audio/hard-times.mp3",
+  "/audio/tame-impala.mp3",
 ];
 
 function GamePageContent() {
@@ -79,9 +79,9 @@ function GamePageContent() {
   const animationFrameRef = useRef<number | null>(null);
   const speedMultiplierRef = useRef(1); // Ref for smooth animation updates without re-renders
   const lastUIUpdateTimeRef = useRef<number>(0); // For throttling UI updates
-  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const overlayVideoRef = useRef<HTMLVideoElement | null>(null);
-  const selectedVideoRef = useRef<string | null>(null);
+  const selectedAudioRef = useRef<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
@@ -587,9 +587,9 @@ function GamePageContent() {
         highShelfFilterRef.current.gain.setValueAtTime(0, now); // No high boost
         gainNodeRef.current.gain.setValueAtTime(1, now); // Normal gain
       }
-      // Reset video volume to default
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.volume = 0.3;
+      // Reset audio volume to default
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.volume = 0.3;
       }
       return;
     }
@@ -618,9 +618,9 @@ function GamePageContent() {
           highShelfFilterRef.current.gain.setValueAtTime(0, now);
           gainNodeRef.current.gain.setValueAtTime(1, now);
         }
-        // Reset video volume to default
-        if (backgroundVideoRef.current) {
-          backgroundVideoRef.current.volume = 0.3;
+        // Reset audio volume to default
+        if (backgroundAudioRef.current) {
+          backgroundAudioRef.current.volume = 0.3;
         }
         return;
       }
@@ -671,10 +671,10 @@ function GamePageContent() {
         gainNodeRef.current.gain.setValueAtTime(gainValue, now);
       }
       
-      // Increase video volume as filter goes higher - escalate from 0.3 to 0.8
-      if (backgroundVideoRef.current) {
+      // Increase audio volume as filter goes higher - escalate from 0.3 to 0.8
+      if (backgroundAudioRef.current) {
         const volumeValue = 0.3 + progress * 0.5; // 0.3 to 0.8 (30% to 80%)
-        backgroundVideoRef.current.volume = Math.min(volumeValue, 1);
+        backgroundAudioRef.current.volume = Math.min(volumeValue, 1);
       }
 
       animationFrameRef.current = requestAnimationFrame(updateSpeed);
@@ -757,9 +757,9 @@ function GamePageContent() {
         highShelfFilterRef.current.gain.setValueAtTime(0, now);
         gainNodeRef.current.gain.setValueAtTime(1, now);
       }
-      // Reset video volume to default
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.volume = 0.3;
+      // Reset audio volume to default
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.volume = 0.3;
       }
         
         // Only transition to game screen if held for 2 seconds
@@ -777,18 +777,18 @@ function GamePageContent() {
     };
   }, [showGameScreen, isSpacebarHeld, cutToGameScreen, returnToCarousel]);
 
-  // Play random video audio when carousel is visible
+  // Play random audio when carousel is visible
   useEffect(() => {
     if (!showGameScreen) {
-      // Stop existing video if transitioning back to carousel
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.pause();
-        backgroundVideoRef.current.src = '';
-        if (backgroundVideoRef.current.parentNode) {
-          backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
+      // Stop existing audio if transitioning back to carousel
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.pause();
+        backgroundAudioRef.current.src = '';
+        if (backgroundAudioRef.current.parentNode) {
+          backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
         }
-        backgroundVideoRef.current = null;
-        selectedVideoRef.current = null;
+        backgroundAudioRef.current = null;
+        selectedAudioRef.current = null;
       }
       
       // Cleanup audio context if exists
@@ -801,25 +801,23 @@ function GamePageContent() {
         gainNodeRef.current = null;
       }
       
-      // Select a random video
-      const randomVideo = videos[Math.floor(Math.random() * videos.length)];
-      selectedVideoRef.current = randomVideo;
+      // Select a random audio file
+      const randomAudio = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+      selectedAudioRef.current = randomAudio;
       
-      // Create video element for audio playback
-      const video = document.createElement('video');
-      video.src = randomVideo;
-      video.loop = true;
-      video.muted = false;
-      video.volume = 0.3; // Set volume to 30%
-      video.style.display = 'none';
-      document.body.appendChild(video);
-      backgroundVideoRef.current = video;
+      // Create audio element for playback
+      const audio = document.createElement('audio');
+      audio.src = randomAudio;
+      audio.loop = true;
+      audio.volume = 0.3; // Set volume to 30%
+      document.body.appendChild(audio);
+      backgroundAudioRef.current = audio;
       
       // Setup audio context & filters for low frequencies by default
       const setupAudio = async () => {
         try {
           const audioCtx = new AudioContext();
-          const source = audioCtx.createMediaElementSource(video);
+          const source = audioCtx.createMediaElementSource(audio);
           
           // Lowpass filter: allows lows (default at 500Hz to play lows only)
           const lowpassFilter = audioCtx.createBiquadFilter();
@@ -854,9 +852,9 @@ function GamePageContent() {
           highShelfFilterRef.current = highShelfFilter;
           gainNodeRef.current = gainNode;
           
-          // Resume audio context and play video
+          // Resume audio context and play audio
           await audioCtx.resume();
-          await video.play();
+          await audio.play();
         } catch (err) {
           console.log('Error setting up audio:', err);
         }
@@ -864,9 +862,9 @@ function GamePageContent() {
       
       setupAudio();
     } else {
-      // Stop video when game screen is shown
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.pause();
+      // Stop audio when game screen is shown
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.pause();
       }
       // Reset filters to play lows by default when game screen is shown
       if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
@@ -880,15 +878,15 @@ function GamePageContent() {
     }
     
     return () => {
-      // Cleanup video when carousel is hidden or component unmounts
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.pause();
-        backgroundVideoRef.current.src = '';
-        if (backgroundVideoRef.current.parentNode) {
-          backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
+      // Cleanup audio when carousel is hidden or component unmounts
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.pause();
+        backgroundAudioRef.current.src = '';
+        if (backgroundAudioRef.current.parentNode) {
+          backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
         }
-        backgroundVideoRef.current = null;
-        selectedVideoRef.current = null;
+        backgroundAudioRef.current = null;
+        selectedAudioRef.current = null;
       }
       // Cleanup audio context
       if (audioCtxRef.current) {
@@ -1022,11 +1020,11 @@ function GamePageContent() {
   useEffect(() => {
     return () => {
       audioManager.current.stop();
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.pause();
-        backgroundVideoRef.current.src = '';
-        if (backgroundVideoRef.current.parentNode) {
-          backgroundVideoRef.current.parentNode.removeChild(backgroundVideoRef.current);
+      if (backgroundAudioRef.current) {
+        backgroundAudioRef.current.pause();
+        backgroundAudioRef.current.src = '';
+        if (backgroundAudioRef.current.parentNode) {
+          backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
         }
       }
       if (overlayVideoRef.current) {
@@ -1087,63 +1085,72 @@ function GamePageContent() {
       <AnimatePresence>
         {showGameScreen && (
           <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
+            {/* Grouped container for video and play button - they resize together (same pattern as TVWithVideo) */}
             <div 
-              className="relative h-full flex items-center justify-center"
+              className="relative"
               style={{
-                width: 'min(85vw, 50%)',
+                width: 'clamp(200px, 50vw, 800px)',
+                maxWidth: '800px',
+                aspectRatio: '16/9', // Maintain aspect ratio like TV component
               }}
             >
-              <video
-                ref={onVideoRef}
-                src="/on.mp4"
-                playsInline
-                muted
-                preload="auto"
-                className="w-full h-full object-contain"
-                style={{ display: 'none' }}
-              />
-              <video
-                ref={runningVideoRef}
-                src="/running.mp4"
-                loop
-                playsInline
-                muted
-                preload="auto"
-                className="w-full h-full object-contain"
-                style={{ display: 'none' }}
-              />
-              <video
-                ref={offVideoRef}
-                src="/off.mp4"
-                playsInline
-                muted
-                preload="auto"
-                className="w-full h-full object-contain"
-                style={{ display: 'none' }}
-              />
-              {/* Play Button - White circle, bottom left of video container */}
+              {/* Videos - positioned absolutely to fill container */}
+              <div className="absolute inset-0">
+                <video
+                  ref={onVideoRef}
+                  src="/on.mp4"
+                  playsInline
+                  muted
+                  preload="auto"
+                  className="w-full h-full object-contain"
+                  style={{ display: 'none' }}
+                />
+                <video
+                  ref={runningVideoRef}
+                  src="/running.mp4"
+                  loop
+                  playsInline
+                  muted
+                  preload="auto"
+                  className="w-full h-full object-contain"
+                  style={{ display: 'none' }}
+                />
+                <video
+                  ref={offVideoRef}
+                  src="/off.mp4"
+                  playsInline
+                  muted
+                  preload="auto"
+                  className="w-full h-full object-contain"
+                  style={{ display: 'none' }}
+                />
+              </div>
+              
+              {/* Play Button - Positioned absolutely within container, scales proportionally */}
               {showFullGameScreen && (
                 <button
                   onClick={handlePlay}
                   disabled={isFinished}
-                  className="absolute bottom-[26.5%] left-[17.6%] rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute rounded-full border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    width: 'clamp(2.5rem, 4vw, 4.5rem)',
-                    height: 'clamp(2.5rem, 4vw, 4.5rem)',
+                    bottom: '26.5%',
+                    left: '17.6%',
+                    width: 'clamp(2.5rem, 8%, 4.5rem)',
+                    height: 'clamp(2.5rem, 8%, 4.5rem)',
                   }}
                 >
                   {isPlaying ? (
                     <span 
                       className="ml-1"
                       style={{
-                        fontSize: 'clamp(1rem, 2vw, 1.5rem)',
+                        fontSize: 'clamp(1rem, 4%, 1.5rem)',
                       }}
                     >⏸</span>
                   ) : (
                     <span 
                       className="ml-1"
                       style={{
-                        fontSize: 'clamp(1rem, 2vw, 1.5rem)',
+                        fontSize: 'clamp(1rem, 4%, 1.5rem)',
                       }}
                     >▶</span>
                   )}
