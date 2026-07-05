@@ -3,14 +3,18 @@ import Song from '../models/Song';
 import Play from '../models/Play';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { formatViewCount } from '../utils/viewCountFormatter';
+import { requireAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
+
+// All play actions require an authenticated user
+router.use(requireAuth);
 
 /**
  * POST /api/plays/start
  * Start a new play session
  */
-router.post('/start', async (req: Request, res: Response) => {
+router.post('/start', async (req: AuthedRequest, res: Response) => {
   try {
     const { mode = 'random', value, minYear } = req.body;
     
@@ -60,6 +64,7 @@ router.post('/start', async (req: Request, res: Response) => {
     // Create play record
     const play = new Play({
       songId: song._id,
+      userId: req.userId,
       mode,
       modeValue,
       startedAt: new Date(),
@@ -95,21 +100,26 @@ router.post('/start', async (req: Request, res: Response) => {
  * POST /api/plays/:playId/guess
  * Submit a guess for the current play
  */
-router.post('/:playId/guess', async (req: Request, res: Response) => {
+router.post('/:playId/guess', async (req: AuthedRequest, res: Response) => {
   try {
     const { playId } = req.params;
     const { guess, level } = req.body;
-    
+
     if (!guess || typeof guess !== 'string') {
       return res.status(400).json({ error: 'Guess is required and must be a string' });
     }
-    
+
     // Find play
     const play = await Play.findById(playId).populate<{ songId: any }>('songId');
     if (!play) {
       return res.status(404).json({ error: 'Play not found' });
     }
-    
+
+    // Ensure the play belongs to the authenticated user
+    if (play.userId && play.userId.toString() !== req.userId) {
+      return res.status(403).json({ error: 'This play does not belong to you' });
+    }
+
     // Check if already finished
     if (play.finishedAt) {
       return res.status(400).json({ error: 'This play is already finished' });
@@ -185,15 +195,20 @@ router.post('/:playId/guess', async (req: Request, res: Response) => {
  * POST /api/plays/:playId/skip
  * Skip to next level without guessing
  */
-router.post('/:playId/skip', async (req: Request, res: Response) => {
+router.post('/:playId/skip', async (req: AuthedRequest, res: Response) => {
   try {
     const { playId } = req.params;
-    
+
     const play = await Play.findById(playId);
     if (!play) {
       return res.status(404).json({ error: 'Play not found' });
     }
-    
+
+    // Ensure the play belongs to the authenticated user
+    if (play.userId && play.userId.toString() !== req.userId) {
+      return res.status(403).json({ error: 'This play does not belong to you' });
+    }
+
     if (play.finishedAt) {
       return res.status(400).json({ error: 'This play is already finished' });
     }
