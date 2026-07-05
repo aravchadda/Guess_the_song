@@ -81,6 +81,10 @@ Thumbs.db
 # Audio & Generated files
 # ============================================
 backend/Separated/
+/preprocessed/
+/songs.csv
+/spotify_playlist_tracks.csv
+backend/preprocessed/
 
 
 
