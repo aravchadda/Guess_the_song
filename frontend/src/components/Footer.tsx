@@ -30,17 +30,8 @@ export default function Footer() {
         >
           Supro
         </a>
-        <a 
-          href="https://www.linkedin.com/in/vrinda-sharma-11a705296/" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-white text-sm hover:opacity-80 transition-opacity"
-          aria-label="Vrinda"
-        >
-          Vrinda
-        </a>
-        <a 
-          href="https://github.com/aravchadda/Guess_the_song" 
+        <a
+          href="https://github.com/aravchadda/Guess_the_song"
           target="_blank" 
           rel="noopener noreferrer"
           className="text-white text-sm hover:opacity-80 transition-opacity"

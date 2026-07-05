@@ -490,7 +490,7 @@ export default function Home(): JSX.Element {
           transition={{ delay: 1.6 }}
         >
           <p className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
-            {isMobile ? 'Tap and hold' : 'Hold'}{" "}
+            Hold{" "}
             <motion.button
               onMouseDown={async (e) => {
                 if (!triggered && !isMobile) {
@@ -513,31 +513,31 @@ export default function Home(): JSX.Element {
               onTouchStart={isMobile ? handleTouchStart : undefined}
               onTouchEnd={isMobile ? handleTouchEnd : undefined}
               onTouchCancel={isMobile ? handleTouchCancel : undefined}
-              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none cursor-pointer select-none"
-              style={{ 
-                minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(80px, 12vw, 120px)',
-                minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(32px, 4vw, 44px)',
-                padding: isMobile 
-                  ? 'clamp(0.75rem, 2vw, 1.25rem) clamp(1.5rem, 4vw, 2.5rem)'
-                  : 'clamp(0.25rem, 0.5vw, 0.5rem) clamp(1rem, 2vw, 1.5rem)',
-                fontSize: isMobile 
-                  ? 'clamp(0.875rem, 2vw, 1.125rem)'
-                  : 'clamp(0.625rem, 1.2vw, 0.75rem)',
+              className="relative rounded-sm border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none cursor-pointer select-none"
+              style={{
+                minWidth: isMobile ? 'clamp(100px, 16vw, 150px)' : 'clamp(100px, 13vw, 150px)',
+                minHeight: isMobile ? 'clamp(20px, 3vw, 26px)' : 'clamp(14px, 1.6vw, 18px)',
+                padding: isMobile
+                  ? 'clamp(0.2rem, 0.6vw, 0.3rem) clamp(1rem, 2.5vw, 1.5rem)'
+                  : 'clamp(0.1rem, 0.3vw, 0.2rem) clamp(0.75rem, 1.5vw, 1.25rem)',
+                fontSize: isMobile
+                  ? 'clamp(0.625rem, 1.3vw, 0.75rem)'
+                  : 'clamp(0.5rem, 0.8vw, 0.625rem)',
                 userSelect: 'none',
               }}
               whileHover={!isMobile ? { scale: 1.05 } : {}}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
+              <span className="relative z-10 font-mono">Space</span>
               <motion.span
-                className="absolute inset-0 rounded border-2 border-[#4A75AC] pointer-events-none"
+                className="absolute inset-0 rounded-sm border-2 border-[#4A75AC] pointer-events-none"
                 style={{
                   clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
                 }}
                 transition={{ duration: 0.1, ease: "linear" }}
               />
             </motion.button>{" "}
-            for <strong>2 seconds</strong> to charge and enter.
+            to charge and enter.
           </p>
         </motion.div>
       )}

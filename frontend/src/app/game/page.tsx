@@ -5,10 +5,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
-import { startPlay, submitGuess, skipLevel, searchSongs, API_URL } from '@/lib/api';
+import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
 import type { Song, GuessResponse, SearchResult } from '@/lib/api';
 import Carousel from '@/components/Carousel';
 import VideoPlayer from '@/components/VideoPlayer';
+import Leaderboard from '@/components/Leaderboard';
 
 // List of album cover filenames
 const albumCovers = [
@@ -90,6 +91,18 @@ function GamePageContent() {
       router.replace('/');
     }
   }, [isAuthLoading, token, router]);
+
+  // Fetch the user's existing point total on mount
+  useEffect(() => {
+    if (!token) return;
+    getMyStats()
+      .then((stats) => {
+        if (typeof stats.totalPoints === 'number') setTotalPoints(stats.totalPoints);
+      })
+      .catch(() => {
+        // Non-critical; leave totalPoints as-is
+      });
+  }, [token]);
   
   const [showGameScreen, setShowGameScreen] = useState(false);
   const [carouselOpacity, setCarouselOpacity] = useState(1);
@@ -149,6 +162,9 @@ function GamePageContent() {
   const [popupMessage, setPopupMessage] = useState('');
   const [popupType, setPopupType] = useState<'success' | 'error'>('success');
   const [lastGuessedLevel, setLastGuessedLevel] = useState<1 | 2 | 3 | null>(null);
+  const [totalPoints, setTotalPoints] = useState<number | null>(null);
+  const [lastPointsAwarded, setLastPointsAwarded] = useState<number | null>(null);
+  const [leaderboardRefreshKey, setLeaderboardRefreshKey] = useState(0);
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
@@ -249,6 +265,9 @@ function GamePageContent() {
         setIsCorrect(true);
         setIsFinished(true);
         setReveal(response.reveal || null);
+        if (typeof response.totalPoints === 'number') setTotalPoints(response.totalPoints);
+        if (typeof response.pointsAwarded === 'number') setLastPointsAwarded(response.pointsAwarded);
+        setLeaderboardRefreshKey((k) => k + 1);
         audioManager.current.stop();
         setIsPlaying(false);
         stopVideoSequence();
@@ -270,6 +289,8 @@ function GamePageContent() {
           setIsCorrect(false);
           setIsFinished(true);
           setReveal(response.reveal);
+          if (typeof response.totalPoints === 'number') setTotalPoints(response.totalPoints);
+          setLeaderboardRefreshKey((k) => k + 1);
           audioManager.current.stop();
           setIsPlaying(false);
           stopVideoSequence();
@@ -1679,42 +1700,30 @@ function GamePageContent() {
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
                 <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10">
-                    <div className="flex gap-2 sm:gap-3 items-center">
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          value={guess}
-                          onChange={(e) => handleSearchChange(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
-                          placeholder="Type your guess..."
-                          className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
-                          disabled={isFinished || lastGuessedLevel === currentLevel}
-                        />
-                        
-                        {/* Autocomplete Suggestions */}
-                        {showSuggestions && searchResults.length > 0 && (
-                          <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                            {searchResults.map((result) => (
-                              <button
-                                key={result.id}
-                                onClick={() => handleSuggestionClick(result.hint)}
-                                className="w-full px-3 py-2 text-left hover:bg-gray-700 text-white text-sm"
-                              >
-                                {result.hint}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Skip to Level button - next to input */}
-                      {currentLevel < 3 && !isFinished && (
-                        <button
-                          onClick={handleSkip}
-                          className="px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60 whitespace-nowrap"
-                        >
-                          Skip to {currentLevel === 1 ? 'Instruments' : 'vocals'}
-                        </button>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={guess}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
+                        placeholder="Type your guess..."
+                        className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
+                        disabled={isFinished || lastGuessedLevel === currentLevel}
+                      />
+
+                      {/* Autocomplete Suggestions */}
+                      {showSuggestions && searchResults.length > 0 && (
+                        <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {searchResults.map((result) => (
+                            <button
+                              key={result.id}
+                              onClick={() => handleSuggestionClick(result.hint)}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-700 text-white text-sm"
+                            >
+                              {result.hint}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1777,37 +1786,76 @@ function GamePageContent() {
               >
               </div>
               
-              {/* Left side - Level buttons and Skip to Level button */}
-              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-2 sm:gap-3 md:gap-4 px-2 sm:px-4 md:px-6 lg:px-8 z-10">
-                {/* Level buttons - stacked vertically, white text, white border, no fill */}
-                <div className="flex flex-col gap-2 sm:gap-3">
+              {/* Left side - Now playing indicator */}
+              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-3 sm:gap-4 md:gap-5 px-2 sm:px-4 md:px-6 lg:px-8 z-10">
+                <p className="text-white text-xs sm:text-sm uppercase tracking-widest opacity-60 font-semibold">
+                  Now playing:
+                </p>
+                {/* Stem indicators - plain text, not buttons */}
+                <div className="flex flex-col gap-2.5 sm:gap-3">
                   {[
-                    { level: 1, name: 'drums' },
-                    { level: 2, name: 'Instruments' },
-                    { level: 3, name: 'vocals' }
-                  ].map(({ level, name }) => {
-                    // Determine if button should be lit up
-                    const shouldLightUp = 
-                      currentLevel === 1 && level === 1 || // Drums: only drums lights up
-                      currentLevel === 2 && level <= 2 ||   // Instruments: light up drums and instruments
-                      currentLevel === 3 && level <= 3;    // Vocals: light up all three
-                    
+                    { level: 1, name: 'Drums', points: '+10' },
+                    { level: 2, name: 'Instruments', points: '+5' },
+                    { level: 3, name: 'Vocals', points: '+1' }
+                  ].map(({ level, name, points }) => {
+                    // Is this stem currently audible in the mix?
+                    const isActive =
+                      currentLevel === 1 && level === 1 || // Drums: only drums audible
+                      currentLevel === 2 && level <= 2 ||   // Instruments: drums + instruments audible
+                      currentLevel === 3 && level <= 3;    // Vocals: everything audible
+
                     return (
-                  <button
-                      key={level}
-                      className={`px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all ${
-                          shouldLightUp
-                          ? 'opacity-100 scale-110'
-                          : 'opacity-60'
-                      }`}
-                    >
+                      <div
+                        key={level}
+                        className={`flex items-center gap-2 sm:gap-3 font-semibold text-base sm:text-lg md:text-xl transition-all ${
+                          isActive ? 'text-white opacity-100' : 'text-white opacity-30'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all ${
+                            isActive ? 'bg-white' : 'bg-transparent border border-white/40'
+                          }`}
+                        />
                         {name}
-                    </button>
+                        {level === currentLevel && (
+                          <span className="text-xs sm:text-sm opacity-60 font-normal">{points}</span>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
+
+                {/* Skip to Level button */}
+                {currentLevel < 3 && !isFinished && (
+                  <button
+                    onClick={handleSkip}
+                    className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60 whitespace-nowrap"
+                  >
+                    Skip to {currentLevel === 1 ? 'Instruments' : 'Vocals'}
+                  </button>
+                )}
               </div>
-              
+
+              {/* Right side - Points + Leaderboard */}
+              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 top-1/2 transform -translate-y-1/2 flex flex-col items-stretch gap-2 sm:gap-3 px-2 sm:px-4 md:px-6 lg:px-8 z-10 w-36 sm:w-48 md:w-56">
+                {totalPoints !== null && (
+                  <div className="text-right">
+                    <p className="text-white text-[10px] sm:text-xs uppercase tracking-widest opacity-60 font-semibold">
+                      Your points
+                    </p>
+                    <p className="text-white text-xl sm:text-2xl font-bold">
+                      {totalPoints}
+                      {lastPointsAwarded ? (
+                        <span className="text-green-400 text-xs sm:text-sm font-semibold ml-2">
+                          +{lastPointsAwarded}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                )}
+                <Leaderboard refreshKey={leaderboardRefreshKey} />
+              </div>
+
               
               {/* Correct text on right side */}
               {isCorrect && (
@@ -1873,25 +1921,25 @@ function GamePageContent() {
                   stopCarouselHold();
                 }
               }}
-              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
-              style={{ 
-                minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(100px, 15vw, 140px)',
-                minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(36px, 5vw, 48px)',
-                padding: isMobile 
-                  ? 'clamp(0.75rem, 2vw, 1.25rem) clamp(1.5rem, 4vw, 2.5rem)'
-                  : 'clamp(0.5rem, 1vw, 0.75rem) clamp(1.25rem, 2.5vw, 2rem)',
-                fontSize: isMobile 
-                  ? 'clamp(0.875rem, 2vw, 1.125rem)'
-                  : 'clamp(0.625rem, 1.2vw, 0.875rem)',
+              className="relative rounded-sm border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
+              style={{
+                minWidth: isMobile ? 'clamp(100px, 16vw, 150px)' : 'clamp(100px, 13vw, 160px)',
+                minHeight: isMobile ? 'clamp(20px, 3vw, 26px)' : 'clamp(14px, 1.6vw, 18px)',
+                padding: isMobile
+                  ? 'clamp(0.2rem, 0.6vw, 0.3rem) clamp(1rem, 2.5vw, 1.5rem)'
+                  : 'clamp(0.1rem, 0.3vw, 0.2rem) clamp(0.75rem, 1.5vw, 1.25rem)',
+                fontSize: isMobile
+                  ? 'clamp(0.625rem, 1.3vw, 0.75rem)'
+                  : 'clamp(0.5rem, 0.8vw, 0.625rem)',
                 userSelect: 'none',
               }}
               whileHover={!isMobile ? { scale: 1.05 } : {}}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="relative z-10">{isMobile ? 'HOLD' : 'SPACE'}</span>
+              <span className="relative z-10 font-mono">Space</span>
               {!showGameScreen && (
                 <motion.span
-                  className="absolute inset-0 rounded border-2 border-[#4A75AC]"
+                  className="absolute inset-0 rounded-sm border-2 border-[#4A75AC]"
                   style={{
                     clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
                   }}
@@ -1899,7 +1947,7 @@ function GamePageContent() {
                 />
               )}
             </motion.button>{" "}
-            for <strong>2 seconds</strong> to charge and enter.
+            for the next song.
           </p>
         </motion.div>
       </motion.div>

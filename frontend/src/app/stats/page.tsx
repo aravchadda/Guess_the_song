@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getMyStats, type Stats } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function StatsPage() {
   const router = useRouter();
@@ -38,25 +38,22 @@ export default function StatsPage() {
       setIsLoading(false);
     }
   };
-  
+
   if (isLoading) {
     return (
       <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
-          <p className="text-white text-xl font-semibold">Loading statistics...</p>
-        </div>
+        <p className="text-white/60 text-sm tracking-widest uppercase">Loading statistics...</p>
       </main>
     );
   }
-  
+
   if (error) {
     return (
       <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
         <div className="text-center">
-          <p className="text-white text-xl font-semibold mb-4">❌ {error}</p>
+          <p className="text-white text-lg mb-4">{error}</p>
           <Link href="/">
-            <button className="bg-white text-indigo-600 font-semibold py-2 px-6 rounded-lg">
+            <button className="border border-white/40 text-white text-sm py-2 px-6 rounded hover:bg-white/10 transition">
               Back to Home
             </button>
           </Link>
@@ -64,133 +61,110 @@ export default function StatsPage() {
       </main>
     );
   }
-  
+
   if (!stats) return null;
-  
-  // Prepare chart data
+
   const chartData = [
-    { name: 'Level 1', value: stats.distribution.level1, fill: '#10b981' },
-    { name: 'Level 2', value: stats.distribution.level2, fill: '#f59e0b' },
-    { name: 'Level 3', value: stats.distribution.level3, fill: '#ef4444' },
-    { name: 'Failed', value: stats.distribution.failed, fill: '#6b7280' },
+    { name: 'Level 1', value: stats.distribution.level1 },
+    { name: 'Level 2', value: stats.distribution.level2 },
+    { name: 'Level 3', value: stats.distribution.level3 },
+    { name: 'Failed', value: stats.distribution.failed },
   ];
-  
+
   const successRate = stats.totalPlays > 0
     ? ((stats.correctPlays / stats.totalPlays) * 100).toFixed(1)
     : '0.0';
-  
+
+  const totalPoints = stats.totalPoints ?? 0;
+  const averagePointsPerSong = stats.averagePointsPerSong ?? 0;
+  const guessRate = stats.guessRate ?? parseFloat(successRate);
+
+  const primaryStats = [
+    { label: 'Total Points', value: totalPoints },
+    { label: 'Total Plays', value: stats.totalPlays },
+    { label: 'Guess Rate', value: `${guessRate}%` },
+    { label: 'Avg Points / Song', value: averagePointsPerSong.toFixed(2) },
+    { label: 'Avg Level Guessed', value: stats.averageLevel.toFixed(2) },
+    { label: 'Correct Guesses', value: stats.correctPlays },
+  ];
+
+  const distributionRows = [
+    { label: 'Level 1 (Drums)', value: stats.distribution.level1 },
+    { label: 'Level 2 (+ Instruments)', value: stats.distribution.level2 },
+    { label: 'Level 3 (Full mix)', value: stats.distribution.level3 },
+    { label: 'Failed', value: stats.distribution.failed },
+  ];
+
   return (
     <main className="min-h-screen p-8 bg-[#0E0E10]">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="mb-10">
           <Link href="/">
-            <button className="mb-4 bg-white/20 hover:bg-white/30 text-white font-semibold py-2 px-6 rounded-lg backdrop-blur-sm transition">
+            <button className="mb-6 text-white/60 text-sm hover:text-white transition">
               ← Back to Home
             </button>
           </Link>
-          <h1 className="text-4xl font-bold text-white mb-2">📊 Your Statistics</h1>
-          <p className="text-white/80 text-lg">
-            {user ? `Stats for ${user.name}` : 'Your game statistics'}
+          <h1 className="text-3xl font-bold text-white mb-1">Your Statistics</h1>
+          <p className="text-white/50 text-sm">
+            {user ? user.name : 'Your game statistics'}
           </p>
         </div>
-        
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Total Plays</p>
-            <p className="text-4xl font-bold text-indigo-600">{stats.totalPlays}</p>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Success Rate</p>
-            <p className="text-4xl font-bold text-green-600">{successRate}%</p>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Avg Level</p>
-            <p className="text-4xl font-bold text-purple-600">{stats.averageLevel.toFixed(2)}</p>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Correct Guesses</p>
-            <p className="text-4xl font-bold text-teal-600">{stats.correctPlays}</p>
-          </div>
+
+        {/* Primary stats - plain grid, no boxes */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-8 mb-12 pb-12 border-b border-white/10">
+          {primaryStats.map((stat) => (
+            <div key={stat.label}>
+              <p className="text-white text-3xl font-bold mb-1">{stat.value}</p>
+              <p className="text-white/50 text-xs uppercase tracking-widest">{stat.label}</p>
+            </div>
+          ))}
         </div>
-        
-        {/* Chart */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-center">
+
+        {/* Distribution chart */}
+        <div className="mb-12 pb-12 border-b border-white/10">
+          <h2 className="text-white/50 text-xs uppercase tracking-widest mb-6">
             Distribution by Level
           </h2>
-          
-          <ResponsiveContainer width="100%" height={300}>
+
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" name="Guesses">
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Bar>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+              <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} />
+              <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ background: '#0E0E10', border: '1px solid rgba(255,255,255,0.2)' }}
+                labelStyle={{ color: '#fff' }}
+                itemStyle={{ color: '#fff' }}
+              />
+              <Bar dataKey="value" name="Guesses" fill="#ffffff" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-          
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-green-50 dark:bg-green-900 rounded-lg">
-              <p className="text-3xl font-bold text-green-600 dark:text-green-300">{stats.distribution.level1}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Level 1 (Drums)</p>
-            </div>
-            
-            <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg">
-              <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-300">{stats.distribution.level2}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Level 2 (+Instruments)</p>
-            </div>
-            
-            <div className="text-center p-4 bg-red-50 dark:bg-red-900 rounded-lg">
-              <p className="text-3xl font-bold text-red-600 dark:text-red-300">{stats.distribution.level3}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Level 3 (Full)</p>
-            </div>
-            
-            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-3xl font-bold text-gray-600 dark:text-gray-300">{stats.distribution.failed}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Failed</p>
-            </div>
+
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {distributionRows.map((row) => (
+              <div key={row.label}>
+                <p className="text-white text-xl font-bold">{row.value}</p>
+                <p className="text-white/50 text-xs">{row.label}</p>
+              </div>
+            ))}
           </div>
         </div>
-        
-        {/* Insights */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
-            💡 Insights
-          </h2>
-          <ul className="space-y-3 text-gray-700 dark:text-gray-300">
-            <li className="flex items-start">
-              <span className="text-xl mr-3">🎯</span>
-              <span>
-                Average guessed level of <strong>{stats.averageLevel.toFixed(2)}</strong> means players typically guess correctly 
-                {stats.averageLevel < 1.5 ? ' very early (mostly at Level 1)!' : stats.averageLevel < 2.5 ? ' around Level 2.' : ' late in the game.'}
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-xl mr-3">🏆</span>
-              <span>
-                You guessed on drums alone <strong>{stats.distribution.level1}</strong> time(s) - impressive!
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-xl mr-3">📈</span>
-              <span>
-                Overall success rate: <strong>{successRate}%</strong>
-              </span>
-            </li>
-          </ul>
+
+        {/* Summary */}
+        <div className="text-white/70 text-sm space-y-2">
+          <p>
+            Average guessed level of <strong className="text-white">{stats.averageLevel.toFixed(2)}</strong>
+            {stats.averageLevel < 1.5 ? ' — mostly on drums alone.' : stats.averageLevel < 2.5 ? ' — usually by the instruments.' : ' — often not until the full mix.'}
+          </p>
+          <p>
+            Guessed correctly on drums alone <strong className="text-white">{stats.distribution.level1}</strong> time(s).
+          </p>
+          <p>
+            Overall guess rate: <strong className="text-white">{guessRate}%</strong>
+          </p>
         </div>
       </div>
     </main>
   );
 }
-

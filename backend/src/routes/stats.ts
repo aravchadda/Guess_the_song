@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import Play from '../models/Play';
+import User from '../models/User';
 import { requireAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
@@ -48,7 +49,21 @@ router.get('/', async (_req: Request, res: Response) => {
  */
 router.get('/me', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
-    res.json(await computeStats({ userId: req.userId }));
+    const base = await computeStats({ userId: req.userId });
+    const user = await User.findById(req.userId).select('totalPoints songsPlayed successfulGuesses');
+
+    const totalPoints = user?.totalPoints || 0;
+    const songsPlayed = user?.songsPlayed || 0;
+    const successfulGuesses = user?.successfulGuesses || 0;
+
+    res.json({
+      ...base,
+      totalPoints,
+      songsPlayed,
+      successfulGuesses,
+      averagePointsPerSong: songsPlayed > 0 ? parseFloat((totalPoints / songsPlayed).toFixed(2)) : 0,
+      guessRate: songsPlayed > 0 ? parseFloat(((successfulGuesses / songsPlayed) * 100).toFixed(1)) : 0
+    });
   } catch (error) {
     console.error('Error fetching user stats:', error);
     res.status(500).json({ error: 'Internal server error' });

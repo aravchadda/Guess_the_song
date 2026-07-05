@@ -17,6 +17,7 @@ export interface IPlay extends Document {
   currentLevel: number; // Current level (1, 2, or 3)
   guessedLevel?: number; // Level at which correct guess was made
   wasCorrect: boolean;
+  pointsAwarded: number;
   attempts: IAttempt[];
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +41,7 @@ const PlaySchema: Schema = new Schema(
     currentLevel: { type: Number, default: 1, min: 1, max: 3 },
     guessedLevel: { type: Number, min: 1, max: 3 },
     wasCorrect: { type: Boolean, default: false },
+    pointsAwarded: { type: Number, default: 0 },
     attempts: [AttemptSchema]
   },
   { timestamps: true }

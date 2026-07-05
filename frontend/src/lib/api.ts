@@ -43,6 +43,8 @@ export interface PlayResponse {
 
 export interface GuessResponse {
   correct: boolean;
+  pointsAwarded?: number;
+  totalPoints?: number;
   reveal?: {
     name: string;
     artists: string;
@@ -64,6 +66,24 @@ export interface Stats {
     level3: number;
     failed: number;
   };
+  totalPoints?: number;
+  songsPlayed?: number;
+  successfulGuesses?: number;
+  averagePointsPerSong?: number;
+  guessRate?: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  id: string;
+  name: string;
+  picture?: string;
+  totalPoints: number;
+}
+
+export interface LeaderboardResponse {
+  top: LeaderboardEntry[];
+  me: LeaderboardEntry | null;
 }
 
 export interface SearchResult {
@@ -184,6 +204,21 @@ export async function getMe(): Promise<AuthUser> {
 
   const data = await response.json();
   return data.user;
+}
+
+/**
+ * Get the leaderboard (top 10 + the signed-in user's own rank if outside it)
+ */
+export async function getLeaderboard(): Promise<LeaderboardResponse> {
+  const response = await fetch(`${API_URL}/api/leaderboard`, {
+    headers: authHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch leaderboard');
+  }
+
+  return response.json();
 }
 
 /**

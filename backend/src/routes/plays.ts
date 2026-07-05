@@ -1,11 +1,15 @@
 import { Router, Request, Response } from 'express';
 import Song from '../models/Song';
 import Play from '../models/Play';
+import User from '../models/User';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { formatViewCount } from '../utils/viewCountFormatter';
 import { requireAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
+
+// Points awarded for a correct guess, by the level it was guessed on
+const LEVEL_POINTS: Record<number, number> = { 1: 10, 2: 5, 3: 1 };
 
 // All play actions require an authenticated user
 router.use(requireAuth);
@@ -147,13 +151,23 @@ router.post('/:playId/guess', async (req: AuthedRequest, res: Response) => {
     
     if (isCorrect) {
       // Correct guess - game won
+      const pointsAwarded = LEVEL_POINTS[guessLevel] || 0;
       play.wasCorrect = true;
       play.guessedLevel = guessLevel;
+      play.pointsAwarded = pointsAwarded;
       play.finishedAt = new Date();
       await play.save();
-      
+
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { $inc: { totalPoints: pointsAwarded, songsPlayed: 1, successfulGuesses: 1 } },
+        { new: true }
+      );
+
       return res.json({
         correct: true,
+        pointsAwarded,
+        totalPoints: user?.totalPoints ?? pointsAwarded,
         reveal: {
           name: song.name,
           artists: song.artists,
@@ -161,15 +175,23 @@ router.post('/:playId/guess', async (req: AuthedRequest, res: Response) => {
         }
       });
     }
-    
+
     // Wrong guess
     if (guessLevel === 3) {
       // Wrong on vocals (level 3) - game over
       play.finishedAt = new Date();
       await play.save();
-      
+
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        { $inc: { songsPlayed: 1 } },
+        { new: true }
+      );
+
       return res.json({
         correct: false,
+        pointsAwarded: 0,
+        totalPoints: user?.totalPoints ?? 0,
         reveal: {
           name: song.name,
           artists: song.artists,
