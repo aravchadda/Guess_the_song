@@ -10,6 +10,7 @@ import type { Song, GuessResponse, SearchResult } from '@/lib/api';
 import Carousel from '@/components/Carousel';
 import VideoPlayer from '@/components/VideoPlayer';
 import Leaderboard from '@/components/Leaderboard';
+import Spacebar from '@/components/Spacebar';
 
 // List of album cover filenames
 const albumCovers = [
@@ -107,6 +108,7 @@ function GamePageContent() {
   const [showGameScreen, setShowGameScreen] = useState(false);
   const [carouselOpacity, setCarouselOpacity] = useState(1);
   const [isSpacebarHeld, setIsSpacebarHeld] = useState(false);
+  const [isSpacePressed, setIsSpacePressed] = useState(false); // Drives the keycap press visual
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [holdProgress, setHoldProgress] = useState(0);
   const [showBlackScreen, setShowBlackScreen] = useState(false);
@@ -401,7 +403,7 @@ function GamePageContent() {
   // Function to immediately cut to game screen with animation sequence
   const cutToGameScreen = useCallback(() => {
     if (showGameScreen) return;
-    
+
     // Start animation sequence
     setShowGameScreen(true);
     setCarouselOpacity(0);
@@ -849,7 +851,7 @@ function GamePageContent() {
   // Function to return to carousel from game screen
   const returnToCarousel = useCallback(() => {
     if (!showGameScreen) return;
-    
+
     // Reset game state
     audioManager.current.clear();
     setPlayId(null);
@@ -1038,10 +1040,10 @@ function GamePageContent() {
   // Helper function to stop holding and check if should transition
   const stopCarouselHold = useCallback(() => {
     if (showGameScreen || !isSpacebarHeld) return;
-    
+
     // Check if 2 seconds have passed
-    const elapsed = spacebarHoldStartTimeRef.current 
-      ? (Date.now() - spacebarHoldStartTimeRef.current) / 1000 
+    const elapsed = spacebarHoldStartTimeRef.current
+      ? (Date.now() - spacebarHoldStartTimeRef.current) / 1000
       : 0;
     const hasHeldFor2Seconds = elapsed >= 2;
     
@@ -1089,7 +1091,8 @@ function GamePageContent() {
         }
         
         e.preventDefault();
-        
+        setIsSpacePressed(true);
+
         if (showGameScreen) {
           // If on game screen, return to carousel
           returnToCarousel();
@@ -1111,21 +1114,24 @@ function GamePageContent() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !showGameScreen && isSpacebarHeld) {
-        // Don't trigger if user is typing in an input field
+      if (e.code === 'Space') {
         const activeElement = document.activeElement;
         const isInputFocused = activeElement && (
           activeElement.tagName === 'INPUT' ||
           activeElement.tagName === 'TEXTAREA' ||
           activeElement.getAttribute('contenteditable') === 'true'
         );
-        
+
         if (isInputFocused) {
           return; // Allow normal spacebar behavior in input fields
         }
-        
-        e.preventDefault();
-        stopCarouselHold();
+
+        setIsSpacePressed(false);
+
+        if (!showGameScreen && isSpacebarHeld) {
+          e.preventDefault();
+          stopCarouselHold();
+        }
       }
     };
 
@@ -1881,74 +1887,77 @@ function GamePageContent() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0 }}
         >
-          <p className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
+          <div className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
-            <motion.button
-              onClick={showGameScreen ? returnToCarousel : undefined}
+            <Spacebar
+              pressed={isSpacePressed}
               onMouseDown={(e) => {
-                if (!showGameScreen) {
-                  e.preventDefault();
+                e.preventDefault();
+                setIsSpacePressed(true);
+                if (showGameScreen) {
+                  returnToCarousel();
+                  // Physical spacebar key-repeat naturally re-fires keydown while held,
+                  // re-evaluating showGameScreen and starting the charge. Mouse/touch only
+                  // fire once per press, so start charging immediately here too, or holding
+                  // through the transition does nothing until the button is released and pressed again.
+                  setIsSpacebarHeld(true);
+                } else {
                   startCarouselHold();
                 }
               }}
               onMouseUp={(e) => {
-                if (!showGameScreen) {
-                  e.preventDefault();
-                  stopCarouselHold();
-                }
+                e.preventDefault();
+                setIsSpacePressed(false);
+                if (!showGameScreen) stopCarouselHold();
               }}
               onMouseLeave={(e) => {
-                if (!showGameScreen) {
-                  e.preventDefault();
-                  stopCarouselHold();
-                }
+                e.preventDefault();
+                setIsSpacePressed(false);
+                if (!showGameScreen) stopCarouselHold();
               }}
               onTouchStart={(e) => {
-                if (!showGameScreen) {
-                  e.preventDefault();
+                e.preventDefault();
+                setIsSpacePressed(true);
+                if (showGameScreen) {
+                  returnToCarousel();
+                  setIsSpacebarHeld(true);
+                } else {
                   startCarouselHold();
                 }
               }}
               onTouchEnd={(e) => {
-                if (!showGameScreen) {
-                  e.preventDefault();
-                  stopCarouselHold();
-                }
+                e.preventDefault();
+                setIsSpacePressed(false);
+                if (!showGameScreen) stopCarouselHold();
               }}
               onTouchCancel={(e) => {
-                if (!showGameScreen) {
-                  e.preventDefault();
-                  stopCarouselHold();
-                }
+                e.preventDefault();
+                setIsSpacePressed(false);
+                if (!showGameScreen) stopCarouselHold();
               }}
-              className="relative rounded-sm border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden cursor-pointer select-none"
               style={{
-                minWidth: isMobile ? 'clamp(100px, 16vw, 150px)' : 'clamp(100px, 13vw, 160px)',
-                minHeight: isMobile ? 'clamp(20px, 3vw, 26px)' : 'clamp(14px, 1.6vw, 18px)',
+                minWidth: isMobile ? 'clamp(150px, 24vw, 225px)' : 'clamp(150px, 19.5vw, 240px)',
+                minHeight: isMobile ? 'clamp(30px, 4.5vw, 39px)' : 'clamp(21px, 2.4vw, 27px)',
                 padding: isMobile
-                  ? 'clamp(0.2rem, 0.6vw, 0.3rem) clamp(1rem, 2.5vw, 1.5rem)'
-                  : 'clamp(0.1rem, 0.3vw, 0.2rem) clamp(0.75rem, 1.5vw, 1.25rem)',
+                  ? 'clamp(0.3rem, 0.9vw, 0.45rem) clamp(1.5rem, 3.75vw, 2.25rem)'
+                  : 'clamp(0.15rem, 0.45vw, 0.3rem) clamp(1.125rem, 2.25vw, 1.875rem)',
                 fontSize: isMobile
-                  ? 'clamp(0.625rem, 1.3vw, 0.75rem)'
-                  : 'clamp(0.5rem, 0.8vw, 0.625rem)',
-                userSelect: 'none',
+                  ? 'clamp(0.9375rem, 1.95vw, 1.125rem)'
+                  : 'clamp(0.75rem, 1.2vw, 0.9375rem)',
               }}
-              whileHover={!isMobile ? { scale: 1.05 } : {}}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="relative z-10 font-mono">Space</span>
-              {!showGameScreen && (
-                <motion.span
-                  className="absolute inset-0 rounded-sm border-2 border-[#4A75AC]"
-                  style={{
-                    clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
-                  }}
-                  transition={{ duration: 0.1, ease: "linear" }}
-                />
-              )}
-            </motion.button>{" "}
+              overlay={
+                !showGameScreen && (
+                  <span
+                    className="absolute inset-0 rounded-full bg-white pointer-events-none"
+                    style={{
+                      clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
+                    }}
+                  />
+                )
+              }
+            />{" "}
             for the next song.
-          </p>
+          </div>
         </motion.div>
       </motion.div>
 

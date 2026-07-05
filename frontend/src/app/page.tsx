@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { GoogleLogin } from "@react-oauth/google";
 import TVWithVideo from "@/components/TVWithVideo";
+import Spacebar from "@/components/Spacebar";
 import { useAuth } from "@/lib/auth";
 
 // List of all videos in compressed folder
@@ -25,6 +26,7 @@ export default function Home(): JSX.Element {
   const [zoomed, setZoomed] = useState(false);
   const [triggered, setTriggered] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
+  const [isSpacePressed, setIsSpacePressed] = useState(false); // Drives the keycap press visual
   // Initialize with a random video immediately to avoid loading the first video
   const [selectedVideo, setSelectedVideo] = useState<string>(() => {
     return videos[Math.floor(Math.random() * videos.length)];
@@ -259,6 +261,7 @@ export default function Home(): JSX.Element {
     e.preventDefault();
     
     // Add a small delay before starting hold to prevent accidental triggers on tap
+    setIsSpacePressed(true);
     touchStartDelayTimer.current = setTimeout(async () => {
       if (!triggered && !holdTimer.current) {
         await startHold();
@@ -269,32 +272,34 @@ export default function Home(): JSX.Element {
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (triggered) return;
-    
+
     e.preventDefault();
-    
+    setIsSpacePressed(false);
+
     // Cancel the delay timer if touch ends before hold starts
     if (touchStartDelayTimer.current) {
       clearTimeout(touchStartDelayTimer.current);
       touchStartDelayTimer.current = null;
       return; // Don't call stopHold if hold never started
     }
-    
+
     // Only stop hold if it actually started
     stopHold();
   }, [stopHold, triggered]);
 
   const handleTouchCancel = useCallback((e: React.TouchEvent) => {
     if (triggered) return;
-    
+
     e.preventDefault();
-    
+    setIsSpacePressed(false);
+
     // Cancel the delay timer if touch is cancelled before hold starts
     if (touchStartDelayTimer.current) {
       clearTimeout(touchStartDelayTimer.current);
       touchStartDelayTimer.current = null;
       return; // Don't call stopHold if hold never started
     }
-    
+
     // Only stop hold if it actually started
     stopHold();
   }, [stopHold, triggered]);
@@ -304,6 +309,7 @@ export default function Home(): JSX.Element {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.code === "Space" && !triggered && !holdTimer.current) {
         e.preventDefault();
+        setIsSpacePressed(true);
         await startHold();
       }
     };
@@ -311,6 +317,7 @@ export default function Home(): JSX.Element {
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === "Space" && !triggered) {
         e.preventDefault();
+        setIsSpacePressed(false);
         stopHold();
       }
     };
@@ -489,56 +496,56 @@ export default function Home(): JSX.Element {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.6 }}
         >
-          <p className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
+          <div className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
             Hold{" "}
-            <motion.button
+            <Spacebar
+              pressed={isSpacePressed}
               onMouseDown={async (e) => {
-                if (!triggered && !isMobile) {
+                if (!triggered) {
                   e.preventDefault();
+                  setIsSpacePressed(true);
                   await startHold();
                 }
               }}
               onMouseUp={(e) => {
-                if (!triggered && !isMobile) {
+                if (!triggered) {
                   e.preventDefault();
+                  setIsSpacePressed(false);
                   stopHold();
                 }
               }}
               onMouseLeave={(e) => {
-                if (!triggered && !isMobile) {
+                if (!triggered) {
                   e.preventDefault();
+                  setIsSpacePressed(false);
                   stopHold();
                 }
               }}
               onTouchStart={isMobile ? handleTouchStart : undefined}
               onTouchEnd={isMobile ? handleTouchEnd : undefined}
               onTouchCancel={isMobile ? handleTouchCancel : undefined}
-              className="relative rounded-sm border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none cursor-pointer select-none"
+              className="touch-none"
               style={{
-                minWidth: isMobile ? 'clamp(100px, 16vw, 150px)' : 'clamp(100px, 13vw, 150px)',
-                minHeight: isMobile ? 'clamp(20px, 3vw, 26px)' : 'clamp(14px, 1.6vw, 18px)',
+                minWidth: isMobile ? 'clamp(150px, 24vw, 225px)' : 'clamp(150px, 19.5vw, 225px)',
+                minHeight: isMobile ? 'clamp(30px, 4.5vw, 39px)' : 'clamp(21px, 2.4vw, 27px)',
                 padding: isMobile
-                  ? 'clamp(0.2rem, 0.6vw, 0.3rem) clamp(1rem, 2.5vw, 1.5rem)'
-                  : 'clamp(0.1rem, 0.3vw, 0.2rem) clamp(0.75rem, 1.5vw, 1.25rem)',
+                  ? 'clamp(0.3rem, 0.9vw, 0.45rem) clamp(1.5rem, 3.75vw, 2.25rem)'
+                  : 'clamp(0.15rem, 0.45vw, 0.3rem) clamp(1.125rem, 2.25vw, 1.875rem)',
                 fontSize: isMobile
-                  ? 'clamp(0.625rem, 1.3vw, 0.75rem)'
-                  : 'clamp(0.5rem, 0.8vw, 0.625rem)',
-                userSelect: 'none',
+                  ? 'clamp(0.9375rem, 1.95vw, 1.125rem)'
+                  : 'clamp(0.75rem, 1.2vw, 0.9375rem)',
               }}
-              whileHover={!isMobile ? { scale: 1.05 } : {}}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="relative z-10 font-mono">Space</span>
-              <motion.span
-                className="absolute inset-0 rounded-sm border-2 border-[#4A75AC] pointer-events-none"
-                style={{
-                  clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
-                }}
-                transition={{ duration: 0.1, ease: "linear" }}
-              />
-            </motion.button>{" "}
+              overlay={
+                <span
+                  className="absolute inset-0 rounded-full bg-white pointer-events-none"
+                  style={{
+                    clipPath: `inset(0 ${(1 - holdProgress) * 100}% 0 0)`,
+                  }}
+                />
+              }
+            />{" "}
             to charge and enter.
-          </p>
+          </div>
         </motion.div>
       )}
 
