@@ -4,6 +4,27 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+const TOKEN_KEY = 'auth_token';
+
+/**
+ * Build request headers, including the Bearer token if the user is signed in.
+ */
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
 export interface Song {
   id: string;
   release_year: number;
@@ -56,9 +77,7 @@ export interface SearchResult {
 export async function startPlay(mode: 'random' | 'decade', minYear?: number): Promise<PlayResponse> {
   const response = await fetch(`${API_URL}/api/plays/start`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(),
     body: JSON.stringify({ mode, minYear }),
   });
   
@@ -76,9 +95,7 @@ export async function startPlay(mode: 'random' | 'decade', minYear?: number): Pr
 export async function submitGuess(playId: string, guess: string, level?: number): Promise<GuessResponse> {
   const response = await fetch(`${API_URL}/api/plays/${playId}/guess`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(),
     body: JSON.stringify({ guess, level }),
   });
   
@@ -96,9 +113,7 @@ export async function submitGuess(playId: string, guess: string, level?: number)
 export async function skipLevel(playId: string): Promise<SkipResponse> {
   const response = await fetch(`${API_URL}/api/plays/${playId}/skip`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(),
   });
   
   if (!response.ok) {
@@ -110,16 +125,65 @@ export async function skipLevel(playId: string): Promise<SkipResponse> {
 }
 
 /**
- * Get statistics
+ * Get global statistics
  */
 export async function getStats(): Promise<Stats> {
   const response = await fetch(`${API_URL}/api/stats`);
-  
+
   if (!response.ok) {
     throw new Error('Failed to fetch stats');
   }
-  
+
   return response.json();
+}
+
+/**
+ * Get statistics for the signed-in user
+ */
+export async function getMyStats(): Promise<Stats> {
+  const response = await fetch(`${API_URL}/api/stats/me`, {
+    headers: authHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch your stats');
+  }
+
+  return response.json();
+}
+
+/**
+ * Exchange a Google ID token (credential) for an app session token + user.
+ */
+export async function loginWithGoogle(credential: string): Promise<{ token: string; user: AuthUser }> {
+  const response = await fetch(`${API_URL}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Google sign-in failed');
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch the current user's profile using the stored token.
+ */
+export async function getMe(): Promise<AuthUser> {
+  const response = await fetch(`${API_URL}/api/auth/me`, {
+    headers: authHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error('Not authenticated');
+  }
+
+  const data = await response.json();
+  return data.user;
 }
 
 /**

@@ -2,22 +2,35 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getStats, type Stats } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { getMyStats, type Stats } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 export default function StatsPage() {
+  const router = useRouter();
+  const { token, user, isLoading: isAuthLoading } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
+  // Require sign-in
   useEffect(() => {
-    fetchStats();
-  }, []);
-  
+    if (!isAuthLoading && !token) {
+      router.replace('/');
+    }
+  }, [isAuthLoading, token, router]);
+
+  useEffect(() => {
+    if (token) {
+      fetchStats();
+    }
+  }, [token]);
+
   const fetchStats = async () => {
     try {
       setIsLoading(true);
-      const data = await getStats();
+      const data = await getMyStats();
       setStats(data);
     } catch (err: any) {
       setError(err.message);
@@ -76,8 +89,10 @@ export default function StatsPage() {
               ← Back to Home
             </button>
           </Link>
-          <h1 className="text-4xl font-bold text-white mb-2">📊 Statistics</h1>
-          <p className="text-white/80 text-lg">Global game statistics</p>
+          <h1 className="text-4xl font-bold text-white mb-2">📊 Your Statistics</h1>
+          <p className="text-white/80 text-lg">
+            {user ? `Stats for ${user.name}` : 'Your game statistics'}
+          </p>
         </div>
         
         {/* Stats Cards */}
@@ -163,7 +178,7 @@ export default function StatsPage() {
             <li className="flex items-start">
               <span className="text-xl mr-3">🏆</span>
               <span>
-                {stats.distribution.level1} players guessed on drums alone - impressive!
+                You guessed on drums alone <strong>{stats.distribution.level1}</strong> time(s) - impressive!
               </span>
             </li>
             <li className="flex items-start">

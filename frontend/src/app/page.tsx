@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { GoogleLogin } from "@react-oauth/google";
 import TVWithVideo from "@/components/TVWithVideo";
+import { useAuth } from "@/lib/auth";
 
 // List of all videos in compressed folder
 const videos = [
@@ -17,6 +19,8 @@ const videos = [
 ];
 
 export default function Home(): JSX.Element {
+  const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
+  const [signInError, setSignInError] = useState("");
   const [hold, setHold] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [triggered, setTriggered] = useState(false);
@@ -345,6 +349,61 @@ export default function Home(): JSX.Element {
 
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[#0E0E10] overflow-hidden">
+      {/* Google Sign-in Gate — blocks the whole experience until authenticated */}
+      <AnimatePresence>
+        {!isAuthLoading && !token && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#0E0E10] px-6 text-center"
+          >
+            <h1
+              className="font-extrabold mb-4 select-none flex justify-center"
+              style={{ fontSize: "clamp(1.8rem, 7.2vw, 5rem)" }}
+            >
+              <span style={{ color: "#4A75AC" }}>RE</span>
+              <span style={{ color: "#E2DCDE" }}>PLAY</span>
+            </h1>
+            <p className="text-gray-300 mb-8" style={{ fontSize: "clamp(0.8rem, 1.5vw, 1rem)" }}>
+              Sign in with Google to play.
+            </p>
+            <div className="flex flex-col items-center gap-3">
+              <GoogleLogin
+                onSuccess={(cred) => {
+                  setSignInError("");
+                  if (cred.credential) {
+                    loginWithCredential(cred.credential).catch((err) => {
+                      console.error("Sign-in error:", err);
+                      setSignInError(err?.message || "Sign-in failed. Please try again.");
+                    });
+                  }
+                }}
+                onError={() => setSignInError("Google sign-in was cancelled or failed.")}
+                theme="filled_black"
+                shape="pill"
+                text="signin_with"
+              />
+              {signInError && <p className="text-red-400 text-sm max-w-xs">{signInError}</p>}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Signed-in indicator + sign out (top area, below header) */}
+      {token && user && (
+        <div className="fixed top-16 right-4 sm:right-6 z-30 flex items-center gap-2 text-white/80">
+          <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
+          <button
+            onClick={logout}
+            className="text-xs sm:text-sm underline hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+
       {/* Loading Screen */}
       <AnimatePresence>
         {isVideoLoading && (
@@ -518,7 +577,7 @@ export default function Home(): JSX.Element {
                 PLAY POST 00s
               </motion.div>
             </Link>
-            <Link href="/game" className="block">
+            <Link href="/stats" className="block">
               <motion.div
                 whileHover={{ x: -10, scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}

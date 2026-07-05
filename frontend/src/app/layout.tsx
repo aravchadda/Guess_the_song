@@ -4,6 +4,7 @@ import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import OrientationLock from '@/components/OrientationLock'
+import Providers from './providers'
 
 const inter = Inter({ subsets: ['latin'] })
 const pressStart2P = Press_Start_2P({ 
@@ -25,11 +26,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} ${pressStart2P.variable}`}>
-        <OrientationLock>
-          <Header />
-          {children}
-          <Footer />
-        </OrientationLock>
+        <Providers>
+          <OrientationLock>
+            <Header />
+            {children}
+            <Footer />
+          </OrientationLock>
+        </Providers>
       </body>
     </html>
   )

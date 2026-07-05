@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import routes
+import authRouter from './routes/auth';
 import playsRouter from './routes/plays';
 import statsRouter from './routes/stats';
 import songsRouter from './routes/songs';
@@ -42,6 +43,7 @@ const guessLimiter = rateLimit({
 });
 
 // Routes
+app.use('/api/auth', authRouter);
 app.use('/api/plays', playsRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/songs', songsRouter);

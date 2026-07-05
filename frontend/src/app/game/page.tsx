@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAudioManager } from '@/lib/audioManager';
+import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, searchSongs, API_URL } from '@/lib/api';
 import type { Song, GuessResponse, SearchResult } from '@/lib/api';
 import Carousel from '@/components/Carousel';
@@ -79,7 +80,16 @@ const audioFiles = [
 
 function GamePageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { token, isLoading: isAuthLoading } = useAuth();
   const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
+
+  // Redirect unauthenticated users back to the sign-in gate on the landing page
+  useEffect(() => {
+    if (!isAuthLoading && !token) {
+      router.replace('/');
+    }
+  }, [isAuthLoading, token, router]);
   
   const [showGameScreen, setShowGameScreen] = useState(false);
   const [carouselOpacity, setCarouselOpacity] = useState(1);

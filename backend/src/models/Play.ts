@@ -9,6 +9,7 @@ export interface IAttempt {
 
 export interface IPlay extends Document {
   songId: mongoose.Types.ObjectId;
+  userId?: mongoose.Types.ObjectId;
   mode: 'random' | 'decade';
   modeValue?: string;
   startedAt: Date;
@@ -31,6 +32,7 @@ const AttemptSchema: Schema = new Schema({
 const PlaySchema: Schema = new Schema(
   {
     songId: { type: Schema.Types.ObjectId, ref: 'Song', required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     mode: { type: String, enum: ['random', 'decade'], required: true },
     modeValue: { type: String },
     startedAt: { type: Date, default: Date.now },
@@ -46,6 +48,7 @@ const PlaySchema: Schema = new Schema(
 // Index for stats queries
 PlaySchema.index({ wasCorrect: 1, guessedLevel: 1 });
 PlaySchema.index({ createdAt: -1 });
+PlaySchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model<IPlay>('Play', PlaySchema);
 
