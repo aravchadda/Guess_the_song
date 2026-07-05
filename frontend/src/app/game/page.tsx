@@ -1833,12 +1833,15 @@ function GamePageContent() {
 
                 {/* Skip to Level button */}
                 {currentLevel < 3 && !isFinished && (
-                  <button
-                    onClick={handleSkip}
-                    className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60 whitespace-nowrap"
-                  >
-                    Skip to {currentLevel === 1 ? 'Instruments' : 'Vocals'}
-                  </button>
+                  <div className="flex flex-col items-start gap-1">
+                    <p className="text-gray-400 text-xs sm:text-sm">Too hard?</p>
+                    <button
+                      onClick={handleSkip}
+                      className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap"
+                    >
+                      Try with {currentLevel === 1 ? 'Instruments' : 'Vocals'}
+                    </button>
+                  </div>
                 )}
               </div>
 
