@@ -51,6 +51,21 @@ const carouselItems = albumCovers.map(cover => ({
   name: cover,
 }));
 
+// Shuffle function to randomize array order
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// Create three shuffled versions for each row
+const carouselItemsRow1 = shuffleArray(carouselItems);
+const carouselItemsRow2 = shuffleArray(carouselItems);
+const carouselItemsRow3 = shuffleArray(carouselItems);
+
 // List of audio files for background carousel
 const audioFiles = [
   "/audio/ariana.mp3",
@@ -169,6 +184,14 @@ function GamePageContent() {
       setCurrentLevel(1);
       setLastGuessedLevel(null);
       setReveal(null);
+      
+      // Reset video loaded states to ensure videos reload properly
+      setVideosLoaded({
+        on: false,
+        running: false,
+        off: false,
+        overlay: false,
+      });
       
       // Initialize audio context
       await audioManager.current.initialize();
@@ -317,6 +340,14 @@ function GamePageContent() {
     
     // Stop video sequence
     stopVideoSequence();
+    
+    // Reset video loaded states so videos reload properly on next game
+    setVideosLoaded({
+      on: false,
+      running: false,
+      off: false,
+      overlay: false,
+    });
     
     // Reset carousel state
     setIsSpacebarHeld(false);
@@ -518,32 +549,108 @@ function GamePageContent() {
   const stopVideoSequence = useCallback(async () => {
     if (!onVideoRef.current || !runningVideoRef.current || !offVideoRef.current) return;
     
-    // Stop running video
-    if (runningVideoRef.current) {
-      runningVideoRef.current.pause();
-      runningVideoRef.current.currentTime = 0;
-      runningVideoRef.current.style.display = 'none';
-    }
-    
-    // Stop and hide on video
+    // Stop and hide on video immediately
     if (onVideoRef.current) {
       onVideoRef.current.pause();
       onVideoRef.current.currentTime = 0;
       onVideoRef.current.style.display = 'none';
     }
     
-    // Ensure off video is loaded before playing
+    // Keep running video visible but paused until off video is fully loaded
+    // Pause running video but keep it visible
+    if (runningVideoRef.current) {
+      runningVideoRef.current.pause();
+      // Keep it visible - don't hide it yet
+    }
+    
+    // Ensure off video is loaded and ready before switching
+    let offVideoReady = false;
     try {
-      if (!videosLoaded.off && offVideoRef.current) {
-        await preloadVideo(offVideoRef.current, '/off.mp4');
-        setVideosLoaded(prev => ({ ...prev, off: true }));
+      // Always ensure off video is loaded (preloadVideo will skip if already loaded)
+      if (offVideoRef.current) {
+        // Check if video src is set correctly and video is actually ready
+        const hasSrc = offVideoRef.current.src && offVideoRef.current.src.includes('off.mp4');
+        const isReady = offVideoRef.current.readyState >= 3;
+        const needsReload = !hasSrc || !videosLoaded.off || !isReady;
+        
+        if (needsReload) {
+          // Force reload if not ready - reset src to ensure clean reload
+          if (hasSrc && !isReady) {
+            // If src is set but not ready, reload it
+            offVideoRef.current.load();
+            // Wait a bit for load to start
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          // Preload/reload the video
+          await preloadVideo(offVideoRef.current, '/off.mp4');
+          setVideosLoaded(prev => ({ ...prev, off: true }));
+        }
+        
+        // Always wait for video to be ready to play, even if marked as loaded
+        if (offVideoRef.current.readyState < 3) {
+          await new Promise<void>((resolve, reject) => {
+            if (!offVideoRef.current) {
+              reject(new Error('Off video ref is null'));
+              return;
+            }
+            const video = offVideoRef.current;
+            let timeoutId: NodeJS.Timeout;
+            
+            const checkReady = () => {
+              if (video && video.readyState >= 3) {
+                if (timeoutId) clearTimeout(timeoutId);
+                video.removeEventListener('canplay', checkReady);
+                video.removeEventListener('loadeddata', checkReady);
+                resolve();
+              } else if (video) {
+                // Add both canplay and loadeddata listeners for better reliability
+                video.addEventListener('canplay', checkReady, { once: true });
+                video.addEventListener('loadeddata', checkReady, { once: true });
+              } else {
+                if (timeoutId) clearTimeout(timeoutId);
+                reject(new Error('Video element became null'));
+              }
+            };
+            
+            // Set a timeout to prevent infinite waiting
+            timeoutId = setTimeout(() => {
+              video.removeEventListener('canplay', checkReady);
+              video.removeEventListener('loadeddata', checkReady);
+              // If video has any data, try to proceed anyway
+              if (video.readyState >= 2) {
+                resolve();
+              } else {
+                reject(new Error('Timeout waiting for off video to be ready'));
+              }
+            }, 5000);
+            
+            checkReady();
+          });
+        }
+        offVideoReady = true;
       }
     } catch (err) {
       console.error('Error preloading off video:', err);
+      // Try to proceed anyway if video element exists and has some data
+      if (offVideoRef.current && offVideoRef.current.readyState >= 2) {
+        console.log('Proceeding with off video despite error, readyState:', offVideoRef.current.readyState);
+        offVideoReady = true;
+      } else {
+        // If off video fails to load, keep running video visible (already paused)
+        console.error('Off video not ready, keeping running video visible');
+        return;
+      }
     }
     
-    // Show and play off video
-    if (offVideoRef.current) {
+    // Now that off video is loaded and ready, switch to it
+    if (offVideoReady && offVideoRef.current) {
+      // Hide running video
+      if (runningVideoRef.current) {
+        runningVideoRef.current.currentTime = 0;
+        runningVideoRef.current.style.display = 'none';
+      }
+      
+      // Show and play off video
       offVideoRef.current.style.display = 'block';
       offVideoRef.current.currentTime = 0;
       videoSequenceRef.current = 'off';
@@ -552,12 +659,31 @@ function GamePageContent() {
         await offVideoRef.current.play();
       } catch (err) {
         console.log('Error playing off video:', err);
+        // Try to play again after a short delay
+        setTimeout(async () => {
+          if (offVideoRef.current) {
+            try {
+              await offVideoRef.current.play();
+            } catch (retryErr) {
+              console.error('Error retrying off video play:', retryErr);
+            }
+          }
+        }, 100);
       }
     }
     
     // When off video ends, show first frame of on video
     const handleOffVideoEnd = async () => {
       if (!onVideoRef.current || !offVideoRef.current) return;
+      
+      // Reset off video for next use
+      if (offVideoRef.current) {
+        offVideoRef.current.pause();
+        offVideoRef.current.currentTime = 0;
+        offVideoRef.current.style.display = 'none';
+        // Reset the video element to ensure it can be played again
+        offVideoRef.current.load();
+      }
       
       // Ensure on video is ready
       try {
@@ -569,7 +695,6 @@ function GamePageContent() {
         console.error('Error preloading on video:', err);
       }
       
-      offVideoRef.current.style.display = 'none';
       if (onVideoRef.current) {
         onVideoRef.current.style.display = 'block';
         onVideoRef.current.currentTime = 0;
@@ -1463,7 +1588,7 @@ function GamePageContent() {
             <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
-                items={carouselItems} 
+                items={carouselItemsRow1} 
                 speed={1.5}
                 speedMultiplierRef={speedMultiplierRef}
               />
@@ -1473,7 +1598,7 @@ function GamePageContent() {
             <div className="w-full absolute" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
               <Carousel 
                 direction="left" 
-                items={carouselItems} 
+                items={carouselItemsRow2} 
                 speed={1}
                 speedMultiplierRef={speedMultiplierRef}
               />
@@ -1484,7 +1609,7 @@ function GamePageContent() {
           
               <Carousel 
                 direction="left" 
-                items={carouselItems} 
+                items={carouselItemsRow3} 
                 speed={0.7}
                 speedMultiplierRef={speedMultiplierRef}
               />
@@ -1543,31 +1668,43 @@ function GamePageContent() {
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
-                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-md px-4 z-10">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={guess}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
-                        placeholder="Type your guess..."
-                        className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
-                        disabled={isFinished || lastGuessedLevel === currentLevel}
-                      />
+                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10">
+                    <div className="flex gap-2 sm:gap-3 items-center">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          value={guess}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
+                          placeholder="Type your guess..."
+                          className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
+                          disabled={isFinished || lastGuessedLevel === currentLevel}
+                        />
+                        
+                        {/* Autocomplete Suggestions */}
+                        {showSuggestions && searchResults.length > 0 && (
+                          <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                            {searchResults.map((result) => (
+                              <button
+                                key={result.id}
+                                onClick={() => handleSuggestionClick(result.hint)}
+                                className="w-full px-3 py-2 text-left hover:bg-gray-700 text-white text-sm"
+                              >
+                                {result.hint}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       
-                      {/* Autocomplete Suggestions */}
-                      {showSuggestions && searchResults.length > 0 && (
-                        <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                          {searchResults.map((result) => (
-                            <button
-                              key={result.id}
-                              onClick={() => handleSuggestionClick(result.hint)}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-700 text-white text-sm"
-                            >
-                              {result.hint}
-                            </button>
-                          ))}
-                        </div>
+                      {/* Skip to Level button - next to input */}
+                      {currentLevel < 3 && !isFinished && (
+                        <button
+                          onClick={handleSkip}
+                          className="px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60 whitespace-nowrap"
+                        >
+                          Skip to {currentLevel === 1 ? 'Instruments' : 'vocals'}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1659,16 +1796,6 @@ function GamePageContent() {
                     );
                   })}
                 </div>
-                
-                {/* Skip to Level button - under level buttons */}
-                {currentLevel < 3 && !isFinished && (
-                  <button
-                    onClick={handleSkip}
-                    className="px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all hover:opacity-100 opacity-60"
-                  >
-                    Skip to {currentLevel === 1 ? 'Instruments' : 'vocals'}
-                  </button>
-                )}
               </div>
               
               

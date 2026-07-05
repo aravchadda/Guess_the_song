@@ -30,6 +30,7 @@ export default function Home(): JSX.Element {
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const touchStartDelayTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Load video when selectedVideo changes
   useEffect(() => {
@@ -203,6 +204,13 @@ export default function Home(): JSX.Element {
       if (progress >= 1) {
         clearInterval(holdTimer.current!);
         holdTimer.current = null;
+        
+        // Clear delay timer if it exists
+        if (touchStartDelayTimer.current) {
+          clearTimeout(touchStartDelayTimer.current);
+          touchStartDelayTimer.current = null;
+        }
+        
         setTriggered(true);
         setHold(true);
 
@@ -223,6 +231,12 @@ export default function Home(): JSX.Element {
   const stopHold = useCallback(() => {
     if (triggered) return;
     
+    // Clear delay timer if it exists
+    if (touchStartDelayTimer.current) {
+      clearTimeout(touchStartDelayTimer.current);
+      touchStartDelayTimer.current = null;
+    }
+    
     if (holdTimer.current) {
       clearInterval(holdTimer.current);
       holdTimer.current = null;
@@ -236,14 +250,50 @@ export default function Home(): JSX.Element {
 
   // Handle mobile touch events
   const handleTouchStart = useCallback(async (e: React.TouchEvent) => {
+    if (triggered || holdTimer.current || touchStartDelayTimer.current) return;
+    
     e.preventDefault();
-    await startHold();
-  }, [startHold]);
+    
+    // Add a small delay before starting hold to prevent accidental triggers on tap
+    touchStartDelayTimer.current = setTimeout(async () => {
+      if (!triggered && !holdTimer.current) {
+        await startHold();
+      }
+      touchStartDelayTimer.current = null;
+    }, 150); // 150ms delay - if user releases before this, hold won't start
+  }, [startHold, triggered]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (triggered) return;
+    
     e.preventDefault();
+    
+    // Cancel the delay timer if touch ends before hold starts
+    if (touchStartDelayTimer.current) {
+      clearTimeout(touchStartDelayTimer.current);
+      touchStartDelayTimer.current = null;
+      return; // Don't call stopHold if hold never started
+    }
+    
+    // Only stop hold if it actually started
     stopHold();
-  }, [stopHold]);
+  }, [stopHold, triggered]);
+
+  const handleTouchCancel = useCallback((e: React.TouchEvent) => {
+    if (triggered) return;
+    
+    e.preventDefault();
+    
+    // Cancel the delay timer if touch is cancelled before hold starts
+    if (touchStartDelayTimer.current) {
+      clearTimeout(touchStartDelayTimer.current);
+      touchStartDelayTimer.current = null;
+      return; // Don't call stopHold if hold never started
+    }
+    
+    // Only stop hold if it actually started
+    stopHold();
+  }, [stopHold, triggered]);
 
   // Handle spacebar key press and release
   useEffect(() => {
@@ -383,9 +433,28 @@ export default function Home(): JSX.Element {
           <p className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <motion.button
+              onMouseDown={async (e) => {
+                if (!triggered && !isMobile) {
+                  e.preventDefault();
+                  await startHold();
+                }
+              }}
+              onMouseUp={(e) => {
+                if (!triggered && !isMobile) {
+                  e.preventDefault();
+                  stopHold();
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!triggered && !isMobile) {
+                  e.preventDefault();
+                  stopHold();
+                }
+              }}
               onTouchStart={isMobile ? handleTouchStart : undefined}
               onTouchEnd={isMobile ? handleTouchEnd : undefined}
-              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none"
+              onTouchCancel={isMobile ? handleTouchCancel : undefined}
+              className="relative rounded border-2 border-gray-100 tracking-widest bg-white text-black shadow-lg overflow-hidden touch-none cursor-pointer select-none"
               style={{ 
                 minWidth: isMobile ? 'clamp(120px, 20vw, 180px)' : 'clamp(80px, 12vw, 120px)',
                 minHeight: isMobile ? 'clamp(44px, 8vw, 60px)' : 'clamp(32px, 4vw, 44px)',
