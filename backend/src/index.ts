@@ -7,8 +7,8 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from the single project-root .env
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Import routes
 import authRouter from './routes/auth';

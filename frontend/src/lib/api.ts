@@ -18,6 +18,17 @@ function authHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * If a response is a 401, the stored token is stale/invalid (e.g. the server
+ * rotated its signing secret). Notify AuthProvider to clear the session so
+ * the app returns to the sign-in gate instead of getting stuck on the error.
+ */
+function notifyIfAuthExpired(response: Response) {
+  if (response.status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('auth:expired'));
+  }
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -39,6 +50,8 @@ export interface Song {
 export interface PlayResponse {
   playId: string;
   song: Song;
+  availableLevels: number[];
+  currentLevel: number;
 }
 
 export interface GuessResponse {
@@ -102,6 +115,7 @@ export async function startPlay(mode: 'random' | 'decade', minYear?: number): Pr
   });
   
   if (!response.ok) {
+    notifyIfAuthExpired(response);
     const error = await response.json();
     throw new Error(error.error || 'Failed to start play');
   }
@@ -120,6 +134,7 @@ export async function submitGuess(playId: string, guess: string, level?: number)
   });
   
   if (!response.ok) {
+    notifyIfAuthExpired(response);
     const error = await response.json();
     throw new Error(error.error || 'Failed to submit guess');
   }
@@ -137,6 +152,7 @@ export async function skipLevel(playId: string): Promise<SkipResponse> {
   });
   
   if (!response.ok) {
+    notifyIfAuthExpired(response);
     const error = await response.json();
     throw new Error(error.error || 'Failed to skip');
   }
@@ -166,6 +182,7 @@ export async function getMyStats(): Promise<Stats> {
   });
 
   if (!response.ok) {
+    notifyIfAuthExpired(response);
     throw new Error('Failed to fetch your stats');
   }
 
@@ -199,6 +216,7 @@ export async function getMe(): Promise<AuthUser> {
   });
 
   if (!response.ok) {
+    notifyIfAuthExpired(response);
     throw new Error('Not authenticated');
   }
 

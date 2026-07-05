@@ -150,6 +150,9 @@ function GamePageContent() {
   const [playId, setPlayId] = useState<string | null>(null);
   const [song, setSong] = useState<Song | null>(null);
   const [currentLevel, setCurrentLevel] = useState<1 | 2 | 3>(1);
+  // Which levels actually have audio on disk for the current song - some songs
+  // are missing a level (e.g. a silent/trimmed stem), so don't assume 1/2/3 always exist.
+  const [availableLevels, setAvailableLevels] = useState<number[]>([1, 2, 3]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [guess, setGuess] = useState('');
@@ -226,14 +229,18 @@ function GamePageContent() {
       
       // Start play with appropriate mode
       const playResponse = await startPlay('random', gameMode === 'post00s' ? 2000 : undefined);
-      
+
       setPlayId(playResponse.playId);
       setSong(playResponse.song);
-      
-      // Load only level1 initially
+      setAvailableLevels(playResponse.availableLevels);
+      const startingLevel = playResponse.currentLevel as 1 | 2 | 3;
+      setCurrentLevel(startingLevel);
+
+      // Load whichever level the song actually starts at (some songs are
+      // missing level1, e.g. a silent/trimmed stem never got exported)
       await audioManager.current.loadLevel(
         playResponse.song.id,
-        1,
+        startingLevel,
         playResponse.song.audio_urls,
         API_URL
       );
@@ -285,9 +292,10 @@ function GamePageContent() {
         setPopupType('error');
         setShowPopup(true);
         
-        if (currentLevel === 3) {
-          // Wrong on last level (vocals) - game over
-          console.log('Wrong guess on vocals - ending game', { reveal: response.reveal });
+        const lastAvailableLevel = Math.max(...availableLevels);
+        if (currentLevel === lastAvailableLevel) {
+          // Wrong on the last available level - game over
+          console.log('Wrong guess on last available level - ending game', { reveal: response.reveal });
           setIsCorrect(false);
           setIsFinished(true);
           setReveal(response.reveal);
@@ -298,12 +306,14 @@ function GamePageContent() {
           stopVideoSequence();
           setMessage('');
         } else {
-          // Wrong on drums or instruments - advance to next level
+          // Advance to the next level that's actually available for this song
           audioManager.current.stop();
           setIsPlaying(false);
           stopVideoSequence();
-          
-          const nextLevel = (currentLevel + 1) as 1 | 2 | 3;
+
+          const nextLevel = availableLevels
+            .filter((lvl) => lvl > currentLevel)
+            .sort((a, b) => a - b)[0] as 1 | 2 | 3;
           setCurrentLevel(nextLevel);
           setLastGuessedLevel(null); // Reset for new level
           setMessage('');
@@ -744,7 +754,7 @@ function GamePageContent() {
   }, [videosLoaded, preloadVideo]);
 
   const handleSkip = useCallback(async () => {
-    if (!playId || currentLevel === 3 || isFinished || !song) return;
+    if (!playId || currentLevel === Math.max(...availableLevels) || isFinished || !song) return;
     
     try {
       // Stop current playback
@@ -798,7 +808,7 @@ function GamePageContent() {
         setMessage(`❌ ${error.message}`);
       }
     }
-  }, [playId, currentLevel, isFinished, song, stopVideoSequence, showGameScreen, showFullGameScreen, startVideoSequence]);
+  }, [playId, currentLevel, availableLevels, isFinished, song, stopVideoSequence, showGameScreen, showFullGameScreen, startVideoSequence]);
 
   // Helper function to set up audio end callback
   const setupAudioEndCallback = useCallback(() => {
@@ -1832,17 +1842,21 @@ function GamePageContent() {
                 </div>
 
                 {/* Skip to Level button */}
-                {currentLevel < 3 && !isFinished && (
-                  <div className="flex flex-col items-start gap-1">
-                    <p className="text-gray-400 text-xs sm:text-sm">Too hard?</p>
-                    <button
-                      onClick={handleSkip}
-                      className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap"
-                    >
-                      Try with {currentLevel === 1 ? 'Instruments' : 'Vocals'}
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const nextLevel = availableLevels.filter((lvl) => lvl > currentLevel).sort((a, b) => a - b)[0];
+                  const levelNames: Record<number, string> = { 1: 'Drums', 2: 'Instruments', 3: 'Vocals' };
+                  return nextLevel !== undefined && !isFinished && (
+                    <div className="flex flex-col items-start gap-1">
+                      <p className="text-gray-400 text-xs sm:text-sm">Too hard?</p>
+                      <button
+                        onClick={handleSkip}
+                        className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap"
+                      >
+                        Try with {levelNames[nextLevel]}
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Right side - Points + Leaderboard */}

@@ -5,8 +5,11 @@ import User from '../models/User';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { formatViewCount } from '../utils/viewCountFormatter';
 import { requireAuth, AuthedRequest } from '../middleware/auth';
+import { getAvailableLevels } from '../utils/audioAvailability';
 
 const router = Router();
+
+const MAX_SONG_SELECTION_ATTEMPTS = 10;
 
 // Points awarded for a correct guess, by the level it was guessed on
 const LEVEL_POINTS: Record<number, number> = { 1: 10, 2: 5, 3: 1 };
@@ -57,32 +60,50 @@ router.post('/start', async (req: AuthedRequest, res: Response) => {
     if (count === 0) {
       return res.status(404).json({ error: 'No songs found for the selected criteria' });
     }
-    
-    const randomIndex = Math.floor(Math.random() * count);
-    const song = await Song.findOne(query).skip(randomIndex);
-    
-    if (!song) {
-      return res.status(404).json({ error: 'Song not found' });
+
+    // A song's audio can be missing a level (or all of them) on disk - e.g. a
+    // silent/trimmed stem that never got exported. Re-roll a few times rather
+    // than starting a play that can never be won.
+    let song = null;
+    let availableLevels: number[] = [];
+    for (let attempt = 0; attempt < MAX_SONG_SELECTION_ATTEMPTS; attempt++) {
+      const randomIndex = Math.floor(Math.random() * count);
+      const candidate = await Song.findOne(query).skip(randomIndex);
+      if (!candidate) continue;
+
+      const levels = getAvailableLevels(candidate);
+      if (levels.length > 0) {
+        song = candidate;
+        availableLevels = levels;
+        break;
+      }
     }
-    
-    // Create play record
+
+    if (!song) {
+      return res.status(404).json({ error: 'No playable songs found for the selected criteria' });
+    }
+
+    // Create play record, starting at whichever level is actually available first
     const play = new Play({
       songId: song._id,
       userId: req.userId,
       mode,
       modeValue,
       startedAt: new Date(),
-      currentLevel: 1,
+      currentLevel: Math.min(...availableLevels),
+      availableLevels,
       wasCorrect: false,
       attempts: []
     });
-    
+
     await play.save();
-    
+
     // Return play data (without revealing song name/artists)
     // Use song ID-based URLs instead of file paths to hide song name
     res.json({
       playId: play._id,
+      availableLevels,
+      currentLevel: play.currentLevel,
       song: {
         id: song._id,
         release_year: song.release_year,
@@ -177,8 +198,9 @@ router.post('/:playId/guess', async (req: AuthedRequest, res: Response) => {
     }
 
     // Wrong guess
-    if (guessLevel === 3) {
-      // Wrong on vocals (level 3) - game over
+    const lastAvailableLevel = Math.max(...play.availableLevels);
+    if (guessLevel === lastAvailableLevel) {
+      // Wrong on the last available level - game over
       play.finishedAt = new Date();
       await play.save();
 
@@ -235,13 +257,16 @@ router.post('/:playId/skip', async (req: AuthedRequest, res: Response) => {
       return res.status(400).json({ error: 'This play is already finished' });
     }
     
-    // Can't skip if already on level 3
-    if (play.currentLevel >= 3) {
+    // Find the next available level beyond the current one
+    const nextLevel = play.availableLevels
+      .filter((lvl) => lvl > play.currentLevel)
+      .sort((a, b) => a - b)[0];
+
+    if (nextLevel === undefined) {
       return res.status(400).json({ error: 'Already on the last level' });
     }
-    
-    // Advance to next level
-    play.currentLevel += 1;
+
+    play.currentLevel = nextLevel;
     
     // Record skip as an attempt with placeholder text
     play.attempts.push({

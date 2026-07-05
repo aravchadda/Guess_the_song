@@ -14,8 +14,8 @@ import csv from 'csv-parser';
 import dotenv from 'dotenv';
 import Song from '../models/Song';
 
-// Load environment variables from backend
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Load environment variables from the single project-root .env
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
 const CSV_PATH = path.join(__dirname, '../../spotify_playlist_tracks.csv');
 

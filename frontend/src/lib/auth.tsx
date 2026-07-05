@@ -50,6 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // If any API call reports the session token as invalid/expired (e.g. the
+  // server rotated its signing secret), clear the stale session so the app
+  // returns to the sign-in gate instead of getting stuck on a dead error.
+  useEffect(() => {
+    window.addEventListener('auth:expired', logout);
+    return () => window.removeEventListener('auth:expired', logout);
+  }, [logout]);
+
   return (
     <AuthContext.Provider value={{ user, token, isLoading, loginWithCredential, logout }}>
       {children}

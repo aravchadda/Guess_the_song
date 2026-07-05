@@ -15,6 +15,7 @@ export interface IPlay extends Document {
   startedAt: Date;
   finishedAt?: Date;
   currentLevel: number; // Current level (1, 2, or 3)
+  availableLevels: number[]; // Which levels actually have audio on disk for this song
   guessedLevel?: number; // Level at which correct guess was made
   wasCorrect: boolean;
   pointsAwarded: number;
@@ -39,6 +40,7 @@ const PlaySchema: Schema = new Schema(
     startedAt: { type: Date, default: Date.now },
     finishedAt: { type: Date },
     currentLevel: { type: Number, default: 1, min: 1, max: 3 },
+    availableLevels: { type: [Number], default: [1, 2, 3] },
     guessedLevel: { type: Number, min: 1, max: 3 },
     wasCorrect: { type: Boolean, default: false },
     pointsAwarded: { type: Number, default: 0 },
