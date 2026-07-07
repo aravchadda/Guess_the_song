@@ -1,19 +1,21 @@
 "use client";
 
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 
 interface TVWithVideoProps {
   videoSrc: string;
   hold: boolean;
   videoId?: string;
+  children?: ReactNode;
 }
 
-export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video" }: TVWithVideoProps) {
+export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video", children }: TVWithVideoProps) {
   return (
     <motion.div
       className="relative"
       style={{
-        width: 'clamp(200px, 50vw, 800px)',
+        width: 'clamp(200px, max(50vw, min(78vw, 44vh)), 800px)',
         maxWidth: '800px',
       }}
       animate={{
@@ -48,7 +50,22 @@ export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video" }: TV
         alt="TV Frame"
         className="relative w-full h-auto z-20 rounded-3xl shadow-2xl object-contain pointer-events-none"
       />
+
+      {children && (
+        <div
+          className="absolute z-30 flex flex-col items-center justify-center text-center text-white"
+          style={{
+            left: '8%',
+            right: '25%',
+            top: '8%',
+            bottom: '10%',
+            transform: hold ? 'scale(0.6667)' : 'scale(1)',
+            transformOrigin: 'center',
+          }}
+        >
+          {children}
+        </div>
+      )}
     </motion.div>
   );
 }
-

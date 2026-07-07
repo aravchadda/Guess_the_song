@@ -15,9 +15,9 @@ const Card = ({ image, name }: CardProps) => {
     <motion.div
       className="relative overflow-hidden rounded-sm flex justify-center items-center group hover:cursor-pointer transition-all duration-500"
       style={{
-        height: 'clamp(60px, 14vw, 200px)',
-        minWidth: 'clamp(60px, 14vw, 200px)',
-        width: 'clamp(60px, 14vw, 200px)',
+        height: 'clamp(60px, max(14vw, min(18vw, 8vh)), 200px)',
+        minWidth: 'clamp(60px, max(14vw, min(18vw, 8vh)), 200px)',
+        width: 'clamp(60px, max(14vw, min(18vw, 8vh)), 200px)',
       }}
       onHoverStart={() => setShowOverlay(true)}
       onHoverEnd={() => setShowOverlay(false)}
@@ -49,4 +49,3 @@ const Card = ({ image, name }: CardProps) => {
 };
 
 export default Card;
-

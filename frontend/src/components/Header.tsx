@@ -35,9 +35,9 @@ export default function Header() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-6 py-4 bg-transparent">
+    <header className="fixed top-0 left-0 right-0 z-50 flex items-center px-4 py-4 sm:px-6 bg-transparent pointer-events-none">
       {/* Replay text - Top left */}
-      <Link href="/" className="text-white text-3xl font-bold hover:opacity-80 transition-opacity">
+      <Link href="/" className="text-white text-3xl max-[480px]:text-2xl font-bold hover:opacity-80 transition-opacity pointer-events-auto">
         Replay
       </Link>
     </header>

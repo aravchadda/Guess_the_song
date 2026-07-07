@@ -355,10 +355,10 @@ export default function Home(): JSX.Element {
   };
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center bg-[#0E0E10] overflow-hidden">
+    <main className="relative h-[100dvh] min-h-[100dvh] flex items-center justify-center bg-[#0E0E10] overflow-hidden">
       {/* Optional sign-in control */}
       {!isAuthLoading && (
-        <div className="fixed top-4 right-4 sm:right-6 z-30 flex flex-col items-end gap-2">
+        <div className="fixed top-4 right-3 sm:right-6 z-[60] flex flex-col items-end gap-2">
           {token && user ? (
             <div className="flex items-center gap-2 text-white/80">
               <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
@@ -419,58 +419,104 @@ export default function Home(): JSX.Element {
           videoSrc={selectedVideo} 
           hold={hold}
           videoId="tv-video"
-        />
-      </div>
-
-      {/* --- TEXT CONTENT --- */}
-      {!isVideoLoading && (
-        <motion.div
-          className="absolute z-20 text-center px-4 sm:px-6 text-white"
-          style={{
-            left: 'calc(50% - clamp(200px, 50vw, 800px) * 0.394)',
-            top: 'calc(50% - clamp(200px, 50vw, 800px) * 0.15)',
-            transform: 'translate(-50%, -50%)',
-          }}
-          animate={{
-            opacity: hold ? 0 : 1,
-            scale: hold ? 0.95 : 1,
-          }}
-          transition={{ duration: 0.8, ease: "easeInOut" }}
         >
-        <h1 className="font-extrabold mb-2 select-none flex justify-center flex-wrap" style={{ fontSize: 'clamp(1.8rem, 7.2vw, 7.2rem)' }}>
-          {titleLetters.map((letter, i) => (
-            <motion.span
-              key={i}
-              custom={i}
-              variants={letterVariants}
-              initial="hidden"
-              animate="visible"
-              style={{ color: letter.color }}
-              className="inline-block"
+          {!isVideoLoading && !zoomed && (
+            <motion.div
+              className="w-full px-2 sm:px-4"
+              animate={{
+                opacity: hold ? 0 : 1,
+                scale: hold ? 0.95 : 1,
+              }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
             >
-              {letter.text}
-            </motion.span>
-          ))}
-        </h1>
+              <h1
+                className="font-extrabold mb-2 select-none flex justify-center whitespace-nowrap leading-none"
+                style={{ fontSize: isMobile ? 'clamp(2rem, 11vw, 3.2rem)' : 'clamp(1.8rem, 7.2vw, 7.2rem)' }}
+              >
+                {titleLetters.map((letter, i) => (
+                  <motion.span
+                    key={i}
+                    custom={i}
+                    variants={letterVariants}
+                    initial="hidden"
+                    animate="visible"
+                    style={{ color: letter.color }}
+                    className="inline-block"
+                  >
+                    {letter.text}
+                  </motion.span>
+                ))}
+              </h1>
 
-        <motion.p
-          className="text-gray-300 mb-2 px-4"
-          style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1rem)' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-        >
-          Test how wide your music pallete is.
-        </motion.p>
-        </motion.div>
-      )}
+              <motion.p
+                className="text-gray-300 mx-auto max-w-full"
+                style={{ fontSize: isMobile ? 'clamp(0.68rem, 3vw, 0.9rem)' : 'clamp(0.75rem, 1.5vw, 1rem)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.2 }}
+              >
+                Test how wide your music pallete is.
+              </motion.p>
+            </motion.div>
+          )}
+          {zoomed && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.5 }}
+              className="flex flex-col items-center gap-3 sm:gap-6 md:gap-8"
+            >
+              <Link href="/game?mode=all" className="block">
+                <motion.div
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
+                  style={{
+                    ...menuButtonStyle,
+                    fontSize: isMobile ? 'clamp(1.05rem, 5.8vw, 1.8rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                  }}
+                >
+                  PLAY ALL
+                </motion.div>
+              </Link>
+              <Link href="/game?mode=post00s" className="block">
+                <motion.div
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
+                  style={{
+                    ...menuButtonStyle,
+                    fontSize: isMobile ? 'clamp(1.05rem, 5.8vw, 1.8rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                  }}
+                >
+                  PLAY POST 00s
+                </motion.div>
+              </Link>
+              <Link href="/stats" className="block">
+                <motion.div
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
+                  style={{
+                    ...menuButtonStyle,
+                    fontSize: isMobile ? 'clamp(1.05rem, 5.8vw, 1.8rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                  }}
+                >
+                  USER STATS
+                </motion.div>
+              </Link>
+            </motion.div>
+          )}
+        </TVWithVideo>
+      </div>
 
       {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
       {!isVideoLoading && !zoomed && !triggered && (
         <motion.div
           className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2 w-full max-w-[90vw]"
           style={{
-            bottom: 'clamp(1rem, 5vh, 3rem)',
+            bottom: isMobile ? 'calc(env(safe-area-inset-bottom) + 1rem)' : 'clamp(1rem, 5vh, 3rem)',
             transform: 'translateX(-50%)',
           }}
           initial={{ opacity: 0 }}
@@ -529,58 +575,6 @@ export default function Home(): JSX.Element {
           </div>
         </motion.div>
       )}
-
-      <AnimatePresence>
-        {zoomed && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.5 }}
-            className="absolute z-30 flex flex-col items-center sm:items-end gap-4 sm:gap-6 md:gap-8 right-4 sm:right-8 md:right-auto md:[right:calc(50%+37.5vw-50.25vw)] top-1/2 -translate-y-1/2"
-          >
-            <Link href="/game?mode=all" className="block">
-              <motion.div
-                whileHover={{ x: -10, scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-white font-bold cursor-pointer select-none"
-                style={{
-                  ...menuButtonStyle,
-                  fontSize: 'clamp(1rem, 3vw, 2.5rem)',
-                }}
-              >
-                PLAY ALL
-              </motion.div>
-            </Link>
-            <Link href="/game?mode=post00s" className="block">
-              <motion.div
-                whileHover={{ x: -10, scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-white font-bold cursor-pointer select-none"
-                style={{
-                  ...menuButtonStyle,
-                  fontSize: 'clamp(1rem, 3vw, 2.5rem)',
-                }}
-              >
-                PLAY POST 00s
-              </motion.div>
-            </Link>
-            <Link href="/stats" className="block">
-              <motion.div
-                whileHover={{ x: -10, scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-white font-bold cursor-pointer select-none"
-                style={{
-                  ...menuButtonStyle,
-                  fontSize: 'clamp(1rem, 3vw, 2.5rem)',
-                }}
-              >
-                USER STATS
-              </motion.div>
-            </Link>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }

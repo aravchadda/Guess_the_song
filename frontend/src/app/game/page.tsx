@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleLogin } from '@react-oauth/google';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
@@ -69,6 +68,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 const carouselItemsRow1 = shuffleArray(carouselItems);
 const carouselItemsRow2 = shuffleArray(carouselItems);
 const carouselItemsRow3 = shuffleArray(carouselItems);
+const portraitCarouselRows = Array.from({ length: 7 }, () => shuffleArray(carouselItems));
 
 // List of audio files for background carousel
 const audioFiles = [
@@ -83,8 +83,7 @@ const audioFiles = [
 
 function GamePageContent() {
   const searchParams = useSearchParams();
-  const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
-  const [signInError, setSignInError] = useState('');
+  const { token, user, isLoading: isAuthLoading, logout } = useAuth();
   const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
 
   // Fetch the user's existing point total on mount
@@ -111,6 +110,7 @@ function GamePageContent() {
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isPortraitMobile, setIsPortraitMobile] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
   const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -1027,7 +1027,9 @@ function GamePageContent() {
     const checkMobile = () => {
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const isSmallScreen = window.innerWidth < 768; // md breakpoint
-      setIsMobile(isTouchDevice || isSmallScreen);
+      const mobile = isTouchDevice || isSmallScreen;
+      setIsMobile(mobile);
+      setIsPortraitMobile(mobile && window.innerHeight >= window.innerWidth);
     };
     
     checkMobile();
@@ -1464,39 +1466,18 @@ function GamePageContent() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
-      {!isAuthLoading && (
+    <div className="h-[100dvh] min-h-[100dvh] w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
+      {!isAuthLoading && token && user && (
         <div className="fixed top-4 right-4 sm:right-6 z-[70] flex flex-col items-end gap-2">
-          {token && user ? (
-            <div className="flex items-center gap-2 text-white/80">
-              <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
-              <button
-                onClick={logout}
-                className="text-xs sm:text-sm underline hover:text-white transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          ) : (
-            <>
-              <GoogleLogin
-                onSuccess={(cred) => {
-                  setSignInError('');
-                  if (cred.credential) {
-                    loginWithCredential(cred.credential).catch((err) => {
-                      console.error('Sign-in error:', err);
-                      setSignInError(err?.message || 'Sign-in failed. Please try again.');
-                    });
-                  }
-                }}
-                onError={() => setSignInError('Google sign-in was cancelled or failed.')}
-                theme="filled_black"
-                shape="pill"
-                text="signin_with"
-              />
-              {signInError && <p className="text-red-400 text-xs max-w-52 text-right">{signInError}</p>}
-            </>
-          )}
+          <div className="flex items-center gap-2 text-white/80">
+            <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
+            <button
+              onClick={logout}
+              className="text-xs sm:text-sm underline hover:text-white transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       )}
 
@@ -1560,7 +1541,7 @@ function GamePageContent() {
           <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
             {/* Grouped container for video and play button - they resize together (same pattern as TVWithVideo) */}
             <div 
-              className="relative aspect-video w-[clamp(300px,65vw,1000px)] max-w-[1000px] max-[900px]:w-[46vw] max-[900px]:min-w-[270px] max-[700px]:w-[42vw] max-[700px]:min-w-[230px]"
+              className="relative aspect-video w-[clamp(300px,65vw,1000px)] max-w-[1000px] max-[900px]:w-[46vw] max-[900px]:min-w-[270px] max-[700px]:w-[42vw] max-[700px]:min-w-[230px] [@media_(max-width:700px)_and_(orientation:portrait)]:w-[88vw] [@media_(max-width:700px)_and_(orientation:portrait)]:min-w-0 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[420px]"
             >
               {/* Videos - positioned absolutely to fill container */}
               <div className="absolute inset-0">
@@ -1655,35 +1636,62 @@ function GamePageContent() {
             animate={{ opacity: carouselOpacity }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            {/* Row 1 - Top (slower, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
-              <Carousel 
-                direction="left" 
-                items={carouselItemsRow1} 
-                speed={1.5}
-                speedMultiplierRef={speedMultiplierRef}
-              />
+            <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:contents">
+              {[
+                { items: portraitCarouselRows[0], speed: 1.5, top: '18%' },
+                { items: portraitCarouselRows[1], speed: 1, top: '29%' },
+                { items: portraitCarouselRows[2], speed: 0.7, top: '40%' },
+                { items: portraitCarouselRows[3], speed: 1.25, top: '51%' },
+                { items: portraitCarouselRows[4], speed: 0.85, top: '62%' },
+                { items: portraitCarouselRows[5], speed: 1.1, top: '73%' },
+                { items: portraitCarouselRows[6], speed: 0.65, top: '84%' },
+              ].map((row, index) => (
+                <div
+                  key={index}
+                  className="w-full absolute"
+                  style={{ top: row.top, transform: 'translateY(-50%)' }}
+                >
+                  <Carousel
+                    direction="left"
+                    items={row.items}
+                    speed={row.speed}
+                    speedMultiplierRef={speedMultiplierRef}
+                  />
+                </div>
+              ))}
             </div>
+
+            <div className="[@media_(max-width:700px)_and_(orientation:portrait)]:hidden">
+              {/* Row 1 - Top (slower, right to left) */}
+              <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
+                <Carousel 
+                  direction="left" 
+                  items={carouselItemsRow1} 
+                  speed={1.5}
+                  speedMultiplierRef={speedMultiplierRef}
+                />
+              </div>
+              
+              {/* Row 2 - Middle (normal speed, left to right) */}
+              <div className="w-full absolute" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
+                <Carousel 
+                  direction="left" 
+                  items={carouselItemsRow2} 
+                  speed={1}
+                  speedMultiplierRef={speedMultiplierRef}
+                />
+              </div>
+              
+              {/* Row 3 - Bottom (faster, right to left) */}
+              <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
             
-            {/* Row 2 - Middle (normal speed, left to right) */}
-            <div className="w-full absolute" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
-              <Carousel 
-                direction="left" 
-                items={carouselItemsRow2} 
-                speed={1}
-                speedMultiplierRef={speedMultiplierRef}
-              />
-            </div>
-            
-            {/* Row 3 - Bottom (faster, right to left) */}
-            <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
-          
-              <Carousel 
-                direction="left" 
-                items={carouselItemsRow3} 
-                speed={0.7}
-                speedMultiplierRef={speedMultiplierRef}
-              />
+                <Carousel 
+                  direction="left" 
+                  items={carouselItemsRow3} 
+                  speed={0.7}
+                  speedMultiplierRef={speedMultiplierRef}
+                />
+              </div>
             </div>
           
           </motion.div>
@@ -1739,7 +1747,7 @@ function GamePageContent() {
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
-                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] px-4 z-10">
+                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-10">
                     <div className="relative overflow-visible rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
                       <div className="absolute inset-0 pointer-events-none rounded-md opacity-20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.14),transparent_24%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
                       <input
@@ -1748,7 +1756,7 @@ function GamePageContent() {
                         onChange={(e) => handleSearchChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
-                        className="relative w-full rounded-md border-0 bg-transparent px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm md:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="relative w-full rounded-md border-0 bg-transparent px-3 py-2 sm:px-4 sm:py-3 [@media_(max-width:900px)_and_(max-height:500px)]:py-1.5 [@media_(max-width:700px)_and_(orientation:portrait)]:py-2.5 text-xs sm:text-sm md:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isFinished || lastGuessedLevel === currentLevel}
                       />
 
@@ -1806,15 +1814,28 @@ function GamePageContent() {
                 
               {/* Year - Top left corner */}
               {song && (
-                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 text-white z-10">
+                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
                   <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.release_year}</p>
                 </div>
               )}
               
               {/* Views - Top right corner */}
               {song && (
-                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 text-white z-10">
+                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
                   <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.viewcount_formatted}</p>
+                </div>
+              )}
+
+              {song && (
+                <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:grid fixed top-[7.5rem] left-4 right-4 z-10 grid-cols-2 gap-3 text-white">
+                  <div className="rounded-lg border border-[#6f7a8d] bg-[#111820]/80 px-3 py-2 text-left shadow-[0_10px_24px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(255,255,255,0.035)] backdrop-blur-sm">
+                    <p className="text-[8px] uppercase tracking-widest text-[#9aa3b2]">Year</p>
+                    <p className="mt-1 text-lg font-bold leading-none">{song.release_year}</p>
+                  </div>
+                  <div className="rounded-lg border border-[#6f7a8d] bg-[#111820]/80 px-3 py-2 text-right shadow-[0_10px_24px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(255,255,255,0.035)] backdrop-blur-sm">
+                    <p className="text-[8px] uppercase tracking-widest text-[#9aa3b2]">Views</p>
+                    <p className="mt-1 text-lg font-bold leading-none">{song.viewcount_formatted}</p>
+                  </div>
                 </div>
               )}
               
@@ -1828,7 +1849,7 @@ function GamePageContent() {
               </div>
               
               {/* Left side - Now playing indicator */}
-              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 max-[900px]:!left-2 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-2 sm:gap-3 md:gap-5 max-[900px]:!gap-2 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 max-w-[28vw] sm:max-w-[30vw] md:max-w-none max-[900px]:!max-w-[28vw]">
+              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 max-[900px]:!left-2 top-1/2 transform -translate-y-1/2 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden flex flex-col items-start gap-2 sm:gap-3 md:gap-5 max-[900px]:!gap-2 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 max-w-[28vw] sm:max-w-[30vw] md:max-w-none max-[900px]:!max-w-[28vw]">
                 <p className="text-white text-[9px] sm:text-xs md:text-sm max-[900px]:!text-[9px] uppercase tracking-widest opacity-60 font-semibold">
                   Now playing:
                 </p>
@@ -1885,7 +1906,7 @@ function GamePageContent() {
               </div>
 
               {/* Right side - Points + Leaderboard */}
-              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 max-[900px]:!right-2 top-1/2 transform -translate-y-1/2 flex flex-col items-stretch gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 w-36 sm:w-44 md:w-64 lg:w-72 max-[900px]:!w-40">
+              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 max-[900px]:!right-2 top-1/2 transform -translate-y-1/2 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden flex flex-col items-stretch gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 w-36 sm:w-44 md:w-64 lg:w-72 max-[900px]:!w-40">
                 {totalPoints !== null && (
                   <div className="text-right">
                     <p className="text-white text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-60 font-semibold">
@@ -1904,6 +1925,27 @@ function GamePageContent() {
                 <Leaderboard refreshKey={leaderboardRefreshKey} />
               </div>
 
+              <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:flex fixed bottom-[6.25rem] left-4 right-4 z-10 flex-col gap-2">
+                {totalPoints !== null && (
+                  <div className="text-center text-white">
+                    <p className="text-[8px] uppercase tracking-widest opacity-60 font-semibold">
+                      Your points
+                    </p>
+                    <p className="text-xl font-bold leading-tight">
+                      {totalPoints}
+                      {lastPointsAwarded ? (
+                        <span className="text-green-400 text-xs font-semibold ml-2">
+                          +{lastPointsAwarded}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                )}
+                <div className="mx-auto w-full max-w-[22rem]">
+                  <Leaderboard refreshKey={leaderboardRefreshKey} />
+                </div>
+              </div>
+
               
               {/* Correct text on right side */}
               {isCorrect && (
@@ -1918,7 +1960,7 @@ function GamePageContent() {
 
       {/* Spacebar Button - Always visible */}
       <motion.div
-        className="fixed bottom-2 sm:bottom-3 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full px-2 sm:px-4"
+        className="fixed bottom-2 sm:bottom-3 md:bottom-8 [@media_(max-width:900px)_and_(max-height:500px)]:bottom-1 [@media_(max-width:700px)_and_(orientation:portrait)]:bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 transform -translate-x-1/2 z-50 w-full px-2 sm:px-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
             transition={{ duration: 0.3 }}
@@ -1929,7 +1971,7 @@ function GamePageContent() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0 }}
         >
-          <div className="text-gray-400 text-[10px] sm:text-xs md:text-sm px-2 sm:px-4 text-center flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+          <div className="text-gray-400 text-[10px] sm:text-xs md:text-sm [@media_(max-width:900px)_and_(max-height:500px)]:text-[9px] px-2 sm:px-4 text-center flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <Spacebar
               pressed={isSpacePressed}
@@ -1978,12 +2020,20 @@ function GamePageContent() {
                 if (!showGameScreen) stopCarouselHold();
               }}
               style={{
-                minWidth: isMobile ? 'clamp(112px, 18vw, 170px)' : 'clamp(150px, 19.5vw, 240px)',
-                minHeight: isMobile ? 'clamp(26px, 4vw, 34px)' : 'clamp(21px, 2.4vw, 27px)',
-                padding: isMobile
+                minWidth: isPortraitMobile
+                  ? 'clamp(150px, 44vw, 190px)'
+                  : isMobile ? 'clamp(112px, 18vw, 170px)' : 'clamp(150px, 19.5vw, 240px)',
+                minHeight: isPortraitMobile
+                  ? 'clamp(32px, 9vw, 42px)'
+                  : isMobile ? 'clamp(26px, 4vw, 34px)' : 'clamp(21px, 2.4vw, 27px)',
+                padding: isPortraitMobile
+                  ? 'clamp(0.28rem, 1vw, 0.45rem) clamp(1.25rem, 4vw, 1.75rem)'
+                  : isMobile
                   ? 'clamp(0.22rem, 0.7vw, 0.36rem) clamp(1rem, 2.6vw, 1.6rem)'
                   : 'clamp(0.15rem, 0.45vw, 0.3rem) clamp(1.125rem, 2.25vw, 1.875rem)',
-                fontSize: isMobile
+                fontSize: isPortraitMobile
+                  ? 'clamp(0.85rem, 3.5vw, 1rem)'
+                  : isMobile
                   ? 'clamp(0.75rem, 1.45vw, 0.95rem)'
                   : 'clamp(0.75rem, 1.2vw, 0.9375rem)',
               }}
@@ -1998,7 +2048,7 @@ function GamePageContent() {
                 )
               }
             />{" "}
-            for the next song.
+            <span className="[@media_(max-width:900px)_and_(max-height:500px)]:hidden">for the next song.</span>
           </div>
         </motion.div>
       </motion.div>
