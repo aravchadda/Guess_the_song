@@ -425,7 +425,6 @@ export default function Home(): JSX.Element {
               className="w-full px-2 sm:px-4"
               animate={{
                 opacity: hold ? 0 : 1,
-                scale: hold ? 0.95 : 1,
               }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
             >
