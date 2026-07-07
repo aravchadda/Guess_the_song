@@ -75,7 +75,9 @@ export default function Spacebar({
       </div>
 
       {/* 3. THE TEXT */}
-      <span className="relative z-10 font-mono pointer-events-none">Space</span>
+      <span className="relative z-10 font-mono pointer-events-none text-white mix-blend-difference">
+        Space
+      </span>
     </button>
   );
 }

@@ -79,7 +79,7 @@ export default function Leaderboard({ refreshKey }: LeaderboardProps) {
         <p className="relative text-[#b7bfce] text-[9px] text-center py-4">Loading...</p>
       ) : (
         <div className="relative flex flex-col gap-1.5">
-          {top.map((entry) => {
+          {top.map((entry, index) => {
             const isMe = user && entry.id === user.id;
             return (
               <div
@@ -88,7 +88,7 @@ export default function Leaderboard({ refreshKey }: LeaderboardProps) {
                   isMe
                     ? 'border-white bg-white text-[#0b0e0f] shadow-[0_0_0_2px_rgba(255,255,255,0.18)]'
                     : 'border-white/15 bg-[#151a1f]/85 text-[#e8ebf0]'
-                }`}
+                } ${index >= 5 ? 'max-[900px]:!hidden' : ''}`}
               >
                 <span className={isMe ? 'text-right text-[#0b0e0f]/60' : 'text-right text-[#8f98a8]'}>
                   {entry.rank}
