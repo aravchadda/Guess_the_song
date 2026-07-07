@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GoogleLogin } from '@react-oauth/google';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
@@ -82,16 +83,9 @@ const audioFiles = [
 
 function GamePageContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const { token, isLoading: isAuthLoading } = useAuth();
+  const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
+  const [signInError, setSignInError] = useState('');
   const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
-
-  // Redirect unauthenticated users back to the sign-in gate on the landing page
-  useEffect(() => {
-    if (!isAuthLoading && !token) {
-      router.replace('/');
-    }
-  }, [isAuthLoading, token, router]);
 
   // Fetch the user's existing point total on mount
   useEffect(() => {
@@ -1471,6 +1465,41 @@ function GamePageContent() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
+      {!isAuthLoading && (
+        <div className="fixed top-4 right-4 sm:right-6 z-[70] flex flex-col items-end gap-2">
+          {token && user ? (
+            <div className="flex items-center gap-2 text-white/80">
+              <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
+              <button
+                onClick={logout}
+                className="text-xs sm:text-sm underline hover:text-white transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <>
+              <GoogleLogin
+                onSuccess={(cred) => {
+                  setSignInError('');
+                  if (cred.credential) {
+                    loginWithCredential(cred.credential).catch((err) => {
+                      console.error('Sign-in error:', err);
+                      setSignInError(err?.message || 'Sign-in failed. Please try again.');
+                    });
+                  }
+                }}
+                onError={() => setSignInError('Google sign-in was cancelled or failed.')}
+                theme="filled_black"
+                shape="pill"
+                text="signin_with"
+              />
+              {signInError && <p className="text-red-400 text-xs max-w-52 text-right">{signInError}</p>}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Static GIF Background */}
       <AnimatePresence>
         {!showGameScreen && (
@@ -1531,12 +1560,7 @@ function GamePageContent() {
           <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
             {/* Grouped container for video and play button - they resize together (same pattern as TVWithVideo) */}
             <div 
-              className="relative"
-              style={{
-                width: 'clamp(300px, 65vw, 1000px)',
-                maxWidth: '1000px',
-                aspectRatio: '16/9', // Maintain aspect ratio like TV component
-              }}
+              className="relative aspect-video w-[clamp(300px,65vw,1000px)] max-w-[1000px] max-[900px]:w-[46vw] max-[900px]:min-w-[270px] max-[700px]:w-[42vw] max-[700px]:min-w-[230px]"
             >
               {/* Videos - positioned absolutely to fill container */}
               <div className="absolute inset-0">
@@ -1715,26 +1739,27 @@ function GamePageContent() {
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
-                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10">
-                    <div className="relative">
+                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] px-4 z-10">
+                    <div className="relative overflow-visible rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
+                      <div className="absolute inset-0 pointer-events-none rounded-md opacity-20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.14),transparent_24%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
                       <input
                         type="text"
                         value={guess}
                         onChange={(e) => handleSearchChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
-                        className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
+                        className="relative w-full rounded-md border-0 bg-transparent px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm md:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isFinished || lastGuessedLevel === currentLevel}
                       />
 
                       {/* Autocomplete Suggestions */}
                       {showSuggestions && searchResults.length > 0 && (
-                        <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                        <div className="absolute left-0 right-0 z-20 mt-2 max-h-48 overflow-y-auto rounded-lg border-2 border-[#6f7a8d] bg-[#0b0e0f]/95 p-1 shadow-[0_14px_34px_rgba(0,0,0,0.55),inset_0_0_18px_rgba(255,255,255,0.035)] backdrop-blur-sm">
                           {searchResults.map((result) => (
                             <button
                               key={result.id}
                               onClick={() => handleSuggestionClick(result.hint)}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-700 text-white text-sm"
+                              className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-[#e8ebf0] transition-colors hover:bg-white hover:text-[#0b0e0f] focus:bg-white focus:text-[#0b0e0f] focus:outline-none"
                             >
                               {result.hint}
                             </button>
@@ -1781,15 +1806,15 @@ function GamePageContent() {
                 
               {/* Year - Top left corner */}
               {song && (
-                <div className="fixed top-4 sm:top-6 md:top-8 left-4 sm:left-6 md:left-8 text-white z-10">
-                  <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{song.release_year}</p>
+                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 text-white z-10">
+                  <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.release_year}</p>
                 </div>
               )}
               
               {/* Views - Top right corner */}
               {song && (
-                <div className="fixed top-4 sm:top-6 md:top-8 right-4 sm:right-6 md:right-8 text-white z-10">
-                  <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{song.viewcount_formatted}</p>
+                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 text-white z-10">
+                  <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.viewcount_formatted}</p>
                 </div>
               )}
               
@@ -1803,12 +1828,12 @@ function GamePageContent() {
               </div>
               
               {/* Left side - Now playing indicator */}
-              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-3 sm:gap-4 md:gap-5 px-2 sm:px-4 md:px-6 lg:px-8 z-10">
-                <p className="text-white text-xs sm:text-sm uppercase tracking-widest opacity-60 font-semibold">
+              <div className="absolute left-2 sm:left-4 md:left-6 lg:left-8 max-[900px]:!left-2 top-1/2 transform -translate-y-1/2 flex flex-col items-start gap-2 sm:gap-3 md:gap-5 max-[900px]:!gap-2 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 max-w-[28vw] sm:max-w-[30vw] md:max-w-none max-[900px]:!max-w-[28vw]">
+                <p className="text-white text-[9px] sm:text-xs md:text-sm max-[900px]:!text-[9px] uppercase tracking-widest opacity-60 font-semibold">
                   Now playing:
                 </p>
                 {/* Stem indicators - plain text, not buttons */}
-                <div className="flex flex-col gap-2.5 sm:gap-3">
+                <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5">
                   {[
                     { level: 1, name: 'Drums', points: '+10' },
                     { level: 2, name: 'Instruments', points: '+5' },
@@ -1823,7 +1848,7 @@ function GamePageContent() {
                     return (
                       <div
                         key={level}
-                        className={`flex items-center gap-2 sm:gap-3 font-semibold text-base sm:text-lg md:text-xl transition-all ${
+                        className={`flex items-center gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 font-semibold text-xs sm:text-sm md:text-xl max-[900px]:!text-sm transition-all ${
                           isActive ? 'text-white opacity-100' : 'text-white opacity-30'
                         }`}
                       >
@@ -1847,10 +1872,10 @@ function GamePageContent() {
                   const levelNames: Record<number, string> = { 1: 'Drums', 2: 'Instruments', 3: 'Vocals' };
                   return nextLevel !== undefined && !isFinished && (
                     <div className="flex flex-col items-start gap-1">
-                      <p className="text-gray-400 text-xs sm:text-sm">Too hard?</p>
+                      <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px]">Too hard?</p>
                       <button
                         onClick={handleSkip}
-                        className="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg font-semibold text-xs sm:text-sm border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap"
+                        className="px-2 py-1 md:px-3 md:py-1.5 max-[900px]:!px-2 max-[900px]:!py-1 rounded-lg font-semibold text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px] border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap"
                       >
                         Try with {levelNames[nextLevel]}
                       </button>
@@ -1860,13 +1885,13 @@ function GamePageContent() {
               </div>
 
               {/* Right side - Points + Leaderboard */}
-              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 top-1/2 transform -translate-y-1/2 flex flex-col items-stretch gap-2 sm:gap-3 px-2 sm:px-4 md:px-6 lg:px-8 z-10 w-36 sm:w-48 md:w-56">
+              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 max-[900px]:!right-2 top-1/2 transform -translate-y-1/2 flex flex-col items-stretch gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 w-36 sm:w-44 md:w-64 lg:w-72 max-[900px]:!w-40">
                 {totalPoints !== null && (
                   <div className="text-right">
-                    <p className="text-white text-[10px] sm:text-xs uppercase tracking-widest opacity-60 font-semibold">
+                    <p className="text-white text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-60 font-semibold">
                       Your points
                     </p>
-                    <p className="text-white text-xl sm:text-2xl font-bold">
+                    <p className="text-white text-base sm:text-xl md:text-2xl font-bold">
                       {totalPoints}
                       {lastPointsAwarded ? (
                         <span className="text-green-400 text-xs sm:text-sm font-semibold ml-2">
@@ -1893,18 +1918,18 @@ function GamePageContent() {
 
       {/* Spacebar Button - Always visible */}
       <motion.div
-        className="fixed bottom-4 sm:bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full px-4"
+        className="fixed bottom-2 sm:bottom-3 md:bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full px-2 sm:px-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
             transition={{ duration: 0.3 }}
       >
         <motion.div
-          className="flex flex-col items-center space-y-4 sm:space-y-6"
+          className="flex flex-col items-center space-y-2 sm:space-y-3 md:space-y-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0 }}
         >
-          <div className="text-gray-400 text-xs sm:text-sm px-4 text-center flex items-center justify-center gap-2 flex-wrap">
+          <div className="text-gray-400 text-[10px] sm:text-xs md:text-sm px-2 sm:px-4 text-center flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <Spacebar
               pressed={isSpacePressed}
@@ -1953,13 +1978,13 @@ function GamePageContent() {
                 if (!showGameScreen) stopCarouselHold();
               }}
               style={{
-                minWidth: isMobile ? 'clamp(150px, 24vw, 225px)' : 'clamp(150px, 19.5vw, 240px)',
-                minHeight: isMobile ? 'clamp(30px, 4.5vw, 39px)' : 'clamp(21px, 2.4vw, 27px)',
+                minWidth: isMobile ? 'clamp(112px, 18vw, 170px)' : 'clamp(150px, 19.5vw, 240px)',
+                minHeight: isMobile ? 'clamp(26px, 4vw, 34px)' : 'clamp(21px, 2.4vw, 27px)',
                 padding: isMobile
-                  ? 'clamp(0.3rem, 0.9vw, 0.45rem) clamp(1.5rem, 3.75vw, 2.25rem)'
+                  ? 'clamp(0.22rem, 0.7vw, 0.36rem) clamp(1rem, 2.6vw, 1.6rem)'
                   : 'clamp(0.15rem, 0.45vw, 0.3rem) clamp(1.125rem, 2.25vw, 1.875rem)',
                 fontSize: isMobile
-                  ? 'clamp(0.9375rem, 1.95vw, 1.125rem)'
+                  ? 'clamp(0.75rem, 1.45vw, 0.95rem)'
                   : 'clamp(0.75rem, 1.2vw, 0.9375rem)',
               }}
               overlay={

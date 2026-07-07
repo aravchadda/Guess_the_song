@@ -54,6 +54,7 @@ scripts/dist/
 # Logs
 # ============================================
 logs/
+.npm-logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -110,4 +111,7 @@ env/
 # Misc
 # ============================================
 .cache
+.mongo-data/
+.npm-cache/
+*.tsbuildinfo
 *.zip
