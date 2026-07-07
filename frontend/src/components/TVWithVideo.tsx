@@ -52,19 +52,22 @@ export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video", chil
       />
 
       {children && (
-        <div
+        <motion.div
           className="absolute z-30 flex flex-col items-center justify-center text-center text-white"
           style={{
             left: '8%',
             right: '25%',
             top: '8%',
             bottom: '10%',
-            transform: hold ? 'scale(0.6667)' : 'scale(1)',
             transformOrigin: 'center',
           }}
+          animate={{
+            scale: hold ? 0.6667 : 1,
+          }}
+          transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
         >
           {children}
-        </div>
+        </motion.div>
       )}
     </motion.div>
   );

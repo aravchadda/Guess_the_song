@@ -1661,9 +1661,9 @@ function GamePageContent() {
               ))}
             </div>
 
-            <div className="[@media_(max-width:700px)_and_(orientation:portrait)]:hidden">
+            <div className="contents [@media_(max-width:700px)_and_(orientation:portrait)]:hidden">
               {/* Row 1 - Top (slower, right to left) */}
-              <div className="w-full absolute" style={{ top: 'calc(50vh - clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
+              <div className="absolute inset-x-0 w-full" style={{ top: 'calc(50vh - clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
                 <Carousel 
                   direction="left" 
                   items={carouselItemsRow1} 
@@ -1673,7 +1673,7 @@ function GamePageContent() {
               </div>
               
               {/* Row 2 - Middle (normal speed, left to right) */}
-              <div className="w-full absolute" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
+              <div className="absolute inset-x-0 w-full" style={{ top: '50vh', transform: 'translateY(-50%)' }}>
                 <Carousel 
                   direction="left" 
                   items={carouselItemsRow2} 
@@ -1683,7 +1683,7 @@ function GamePageContent() {
               </div>
               
               {/* Row 3 - Bottom (faster, right to left) */}
-              <div className="w-full absolute" style={{ top: 'calc(50vh + clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
+              <div className="absolute inset-x-0 w-full" style={{ top: 'calc(50vh + clamp(80px, 14vw, 300px))', transform: 'translateY(-50%)' }}>
             
                 <Carousel 
                   direction="left" 
@@ -1738,7 +1738,7 @@ function GamePageContent() {
       <AnimatePresence>
         {showGameScreen && showFullGameScreen && (
           <motion.div
-            className="w-full h-full flex items-center justify-center z-50"
+            className="w-full h-full flex items-center justify-center z-50 pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1747,7 +1747,7 @@ function GamePageContent() {
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
-                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-10">
+                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-10 pointer-events-auto">
                     <div className="relative overflow-visible rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
                       <div className="absolute inset-0 pointer-events-none rounded-md opacity-20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.14),transparent_24%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
                       <input
@@ -1780,7 +1780,7 @@ function GamePageContent() {
               
               {/* Song name and YouTube link at top when correct */}
               {isCorrect && reveal && (
-                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2">
+                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
                   <h2 className="text-green-500 text-xl sm:text-2xl md:text-3xl font-bold text-center">
                     {reveal.name}
                   </h2>
@@ -1797,7 +1797,7 @@ function GamePageContent() {
                 
               {/* Song name and YouTube link at top when game over (wrong on vocals) */}
               {isFinished && !isCorrect && reveal && (
-                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2">
+                <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
                   <h2 className="text-red-500 text-xl sm:text-2xl md:text-3xl font-bold text-center">
                       {reveal.name}
                     </h2>
@@ -1896,7 +1896,7 @@ function GamePageContent() {
                       <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px]">Too hard?</p>
                       <button
                         onClick={handleSkip}
-                        className="px-2 py-1 md:px-3 md:py-1.5 max-[900px]:!px-2 max-[900px]:!py-1 rounded-lg font-semibold text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px] border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap"
+                        className="px-2 py-1 md:px-3 md:py-1.5 max-[900px]:!px-2 max-[900px]:!py-1 rounded-lg font-semibold text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px] border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 whitespace-nowrap pointer-events-auto"
                       >
                         Try with {levelNames[nextLevel]}
                       </button>
@@ -1925,23 +1925,23 @@ function GamePageContent() {
                 <Leaderboard refreshKey={leaderboardRefreshKey} />
               </div>
 
-              <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:flex fixed bottom-[6.25rem] left-4 right-4 z-10 flex-col gap-2">
+              <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:flex fixed bottom-[5.75rem] left-4 right-4 z-10 flex-col gap-1.5 pointer-events-auto">
                 {totalPoints !== null && (
                   <div className="text-center text-white">
-                    <p className="text-[8px] uppercase tracking-widest opacity-60 font-semibold">
+                    <p className="text-[7px] uppercase tracking-widest opacity-60 font-semibold">
                       Your points
                     </p>
-                    <p className="text-xl font-bold leading-tight">
+                    <p className="text-base font-bold leading-tight">
                       {totalPoints}
                       {lastPointsAwarded ? (
-                        <span className="text-green-400 text-xs font-semibold ml-2">
+                        <span className="text-green-400 text-[10px] font-semibold ml-1.5">
                           +{lastPointsAwarded}
                         </span>
                       ) : null}
                     </p>
                   </div>
                 )}
-                <div className="mx-auto w-full max-w-[22rem]">
+                <div className="mx-auto w-full max-w-[15rem]">
                   <Leaderboard refreshKey={leaderboardRefreshKey} />
                 </div>
               </div>
