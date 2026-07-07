@@ -4,7 +4,7 @@ import Play from '../models/Play';
 import User from '../models/User';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { formatViewCount } from '../utils/viewCountFormatter';
-import { requireAuth, AuthedRequest } from '../middleware/auth';
+import { optionalAuth, AuthedRequest } from '../middleware/auth';
 import { getAvailableLevels } from '../utils/audioAvailability';
 
 const router = Router();
@@ -14,8 +14,8 @@ const MAX_SONG_SELECTION_ATTEMPTS = 10;
 // Points awarded for a correct guess, by the level it was guessed on
 const LEVEL_POINTS: Record<number, number> = { 1: 10, 2: 5, 3: 1 };
 
-// All play actions require an authenticated user
-router.use(requireAuth);
+// Play is available to guests. Signed-in users get persistent points/stats.
+router.use(optionalAuth);
 
 /**
  * POST /api/plays/start
@@ -179,16 +179,18 @@ router.post('/:playId/guess', async (req: AuthedRequest, res: Response) => {
       play.finishedAt = new Date();
       await play.save();
 
-      const user = await User.findByIdAndUpdate(
-        req.userId,
-        { $inc: { totalPoints: pointsAwarded, songsPlayed: 1, successfulGuesses: 1 } },
-        { new: true }
-      );
+      const user = req.userId
+        ? await User.findByIdAndUpdate(
+            req.userId,
+            { $inc: { totalPoints: pointsAwarded, songsPlayed: 1, successfulGuesses: 1 } },
+            { new: true }
+          )
+        : null;
 
       return res.json({
         correct: true,
         pointsAwarded,
-        totalPoints: user?.totalPoints ?? pointsAwarded,
+        totalPoints: user?.totalPoints,
         reveal: {
           name: song.name,
           artists: song.artists,
@@ -204,16 +206,18 @@ router.post('/:playId/guess', async (req: AuthedRequest, res: Response) => {
       play.finishedAt = new Date();
       await play.save();
 
-      const user = await User.findByIdAndUpdate(
-        req.userId,
-        { $inc: { songsPlayed: 1 } },
-        { new: true }
-      );
+      const user = req.userId
+        ? await User.findByIdAndUpdate(
+            req.userId,
+            { $inc: { songsPlayed: 1 } },
+            { new: true }
+          )
+        : null;
 
       return res.json({
         correct: false,
         pointsAwarded: 0,
-        totalPoints: user?.totalPoints ?? 0,
+        totalPoints: user?.totalPoints,
         reveal: {
           name: song.name,
           artists: song.artists,
@@ -288,4 +292,3 @@ router.post('/:playId/skip', async (req: AuthedRequest, res: Response) => {
 });
 
 export default router;
-

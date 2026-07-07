@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GoogleLogin } from '@react-oauth/google';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
@@ -82,16 +83,9 @@ const audioFiles = [
 
 function GamePageContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const { token, isLoading: isAuthLoading } = useAuth();
+  const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
+  const [signInError, setSignInError] = useState('');
   const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
-
-  // Redirect unauthenticated users back to the sign-in gate on the landing page
-  useEffect(() => {
-    if (!isAuthLoading && !token) {
-      router.replace('/');
-    }
-  }, [isAuthLoading, token, router]);
 
   // Fetch the user's existing point total on mount
   useEffect(() => {
@@ -1471,6 +1465,41 @@ function GamePageContent() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
+      {!isAuthLoading && (
+        <div className="fixed top-4 right-4 sm:right-6 z-[70] flex flex-col items-end gap-2">
+          {token && user ? (
+            <div className="flex items-center gap-2 text-white/80">
+              <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
+              <button
+                onClick={logout}
+                className="text-xs sm:text-sm underline hover:text-white transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <>
+              <GoogleLogin
+                onSuccess={(cred) => {
+                  setSignInError('');
+                  if (cred.credential) {
+                    loginWithCredential(cred.credential).catch((err) => {
+                      console.error('Sign-in error:', err);
+                      setSignInError(err?.message || 'Sign-in failed. Please try again.');
+                    });
+                  }
+                }}
+                onError={() => setSignInError('Google sign-in was cancelled or failed.')}
+                theme="filled_black"
+                shape="pill"
+                text="signin_with"
+              />
+              {signInError && <p className="text-red-400 text-xs max-w-52 text-right">{signInError}</p>}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Static GIF Background */}
       <AnimatePresence>
         {!showGameScreen && (
@@ -1716,25 +1745,26 @@ function GamePageContent() {
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
                 <div className="fixed top-4 sm:top-6 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 z-10">
-                    <div className="relative">
+                    <div className="relative overflow-visible rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
+                      <div className="absolute inset-0 pointer-events-none rounded-md opacity-20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.14),transparent_24%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
                       <input
                         type="text"
                         value={guess}
                         onChange={(e) => handleSearchChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
-                        className="w-full px-3 py-2 border-2 border-gray-500 rounded-lg focus:border-indigo-500 focus:ring focus:ring-indigo-200 bg-gray-800 text-white text-sm"
+                        className="relative w-full rounded-md border-0 bg-transparent px-4 py-3 text-sm sm:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isFinished || lastGuessedLevel === currentLevel}
                       />
 
                       {/* Autocomplete Suggestions */}
                       {showSuggestions && searchResults.length > 0 && (
-                        <div className="absolute z-20 w-full mt-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                        <div className="absolute left-0 right-0 z-20 mt-2 max-h-48 overflow-y-auto rounded-lg border-2 border-[#6f7a8d] bg-[#0b0e0f]/95 p-1 shadow-[0_14px_34px_rgba(0,0,0,0.55),inset_0_0_18px_rgba(255,255,255,0.035)] backdrop-blur-sm">
                           {searchResults.map((result) => (
                             <button
                               key={result.id}
                               onClick={() => handleSuggestionClick(result.hint)}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-700 text-white text-sm"
+                              className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-[#e8ebf0] transition-colors hover:bg-white hover:text-[#0b0e0f] focus:bg-white focus:text-[#0b0e0f] focus:outline-none"
                             >
                               {result.hint}
                             </button>
@@ -1860,7 +1890,7 @@ function GamePageContent() {
               </div>
 
               {/* Right side - Points + Leaderboard */}
-              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 top-1/2 transform -translate-y-1/2 flex flex-col items-stretch gap-2 sm:gap-3 px-2 sm:px-4 md:px-6 lg:px-8 z-10 w-36 sm:w-48 md:w-56">
+              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 top-1/2 transform -translate-y-1/2 flex flex-col items-stretch gap-2 sm:gap-3 px-2 sm:px-4 md:px-6 lg:px-8 z-10 w-44 sm:w-56 md:w-64 lg:w-72">
                 {totalPoints !== null && (
                   <div className="text-right">
                     <p className="text-white text-[10px] sm:text-xs uppercase tracking-widest opacity-60 font-semibold">

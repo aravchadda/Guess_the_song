@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import User from '../models/User';
-import { optionalAuth, AuthedRequest } from '../middleware/auth';
+import { requireAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ export interface LeaderboardEntry {
  * Top 10 users by total points. If the caller is signed in and not in the
  * top 10, their own entry (with real rank) is returned separately as `me`.
  */
-router.get('/', optionalAuth, async (req: AuthedRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
     const topUsers = await User.find()
       .sort({ totalPoints: -1 })
