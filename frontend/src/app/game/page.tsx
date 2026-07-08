@@ -1791,7 +1791,7 @@ function GamePageContent() {
                         onChange={(e) => handleSearchChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
-                        className="relative w-full rounded-md border-0 bg-transparent py-2 pl-3 pr-[5.25rem] sm:py-3 sm:pl-4 sm:pr-28 [@media_(max-width:900px)_and_(max-height:500px)]:py-1.5 [@media_(max-width:700px)_and_(orientation:portrait)]:py-2.5 text-xs sm:text-sm md:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="relative w-full rounded-md border-0 bg-transparent py-2 pl-3 pr-[5.25rem] sm:py-3 sm:pl-4 sm:pr-28 [@media_(max-width:900px)_and_(max-height:500px)]:py-1.5 [@media_(max-width:700px)_and_(orientation:portrait)]:py-2.5 text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isFinished || lastGuessedLevel === currentLevel}
                       />
                       <button
