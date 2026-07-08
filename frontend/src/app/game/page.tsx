@@ -218,9 +218,6 @@ function GamePageContent() {
         overlay: false,
       });
       
-      // Initialize audio context
-      await audioManager.current.initialize();
-      
       // Start play with appropriate mode
       const playResponse = await startPlay('random', gameMode === 'post00s' ? 2000 : undefined);
 
@@ -230,17 +227,26 @@ function GamePageContent() {
       const startingLevel = playResponse.currentLevel as 1 | 2 | 3;
       setCurrentLevel(startingLevel);
 
-      // Load whichever level the song actually starts at (some songs are
-      // missing level1, e.g. a silent/trimmed stem never got exported)
-      await audioManager.current.loadLevel(
-        playResponse.song.id,
-        startingLevel,
-        playResponse.song.audio_urls,
-        API_URL
-      );
+      try {
+        // Initialize and load audio after the song/session is already ready.
+        // On mobile, first-interaction audio unlock can be flaky; don't let it
+        // block the guess UI from receiving the song.
+        await audioManager.current.initialize();
+        await audioManager.current.loadLevel(
+          playResponse.song.id,
+          startingLevel,
+          playResponse.song.audio_urls,
+          API_URL
+        );
+      } catch (audioError) {
+        console.error('Error preparing initial audio:', audioError);
+        setMessage('Audio is still loading. Tap play to retry.');
+      }
       
       setIsLoading(false);
-      setMessage('');
+      if (audioManager.current.hasLevel(playResponse.song.id, startingLevel)) {
+        setMessage('');
+      }
     } catch (error: any) {
       console.error('Error initializing game:', error);
       setMessage(`❌ Error: ${error.message}`);
@@ -857,6 +863,7 @@ function GamePageContent() {
         if (!audioManager.current.hasLevel(song.id, currentLevel)) {
           setIsLoading(true);
           setMessage('Loading audio...');
+          await audioManager.current.initialize();
           await audioManager.current.loadLevel(
             song.id,
             currentLevel,
