@@ -36,6 +36,8 @@ export default function Home(): JSX.Element {
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const holdIntentRef = useRef(false);
   const fadeInTimer = useRef<NodeJS.Timeout | null>(null);
+  const audioStartFrame = useRef<number | null>(null);
+  const audioStartTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -163,6 +165,7 @@ export default function Home(): JSX.Element {
     holdIntentRef.current = true;
     const startTime = Date.now();
     const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+    setHoldProgress(0.001);
 
     // Hold logic (2 seconds)
     holdTimer.current = setInterval(() => {
@@ -206,7 +209,9 @@ export default function Home(): JSX.Element {
       }
     }, 20);
 
-    if (video) {
+    const startAudio = () => {
+      if (!video || !holdIntentRef.current || triggered) return;
+
       void (async () => {
         // Setup audio context & filter after the visual hold has already started.
         if (!audioCtxRef.current) {
@@ -258,8 +263,18 @@ export default function Home(): JSX.Element {
           }
         }, 100);
       })();
+    };
+
+    if (!isMobile && video) {
+      audioStartFrame.current = requestAnimationFrame(() => {
+        audioStartFrame.current = null;
+        audioStartTimer.current = setTimeout(() => {
+          audioStartTimer.current = null;
+          startAudio();
+        }, 0);
+      });
     }
-  }, [triggered]);
+  }, [isMobile, triggered]);
 
   // Shared function to stop holding
   const stopHold = useCallback(() => {
@@ -275,6 +290,16 @@ export default function Home(): JSX.Element {
     if (fadeInTimer.current) {
       clearInterval(fadeInTimer.current);
       fadeInTimer.current = null;
+    }
+
+    if (audioStartFrame.current !== null) {
+      cancelAnimationFrame(audioStartFrame.current);
+      audioStartFrame.current = null;
+    }
+
+    if (audioStartTimer.current) {
+      clearTimeout(audioStartTimer.current);
+      audioStartTimer.current = null;
     }
 
     setHoldProgress(0);
@@ -548,7 +573,7 @@ export default function Home(): JSX.Element {
             Hold{" "}
             <Spacebar
               pressed={isSpacePressed}
-              label={isMobile ? 'Here' : undefined}
+              label={isMobile ? 'Press here' : undefined}
               onMouseDown={isMobile ? undefined : async (e) => {
                 if (!triggered) {
                   e.preventDefault();
