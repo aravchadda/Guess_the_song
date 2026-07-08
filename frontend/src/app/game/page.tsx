@@ -1566,10 +1566,10 @@ function GamePageContent() {
       {/* Game Screen Background Videos */}
       <AnimatePresence>
         {showGameScreen && (
-          <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
+          <div className="absolute inset-0 z-[2] flex h-full w-full touch-none items-center justify-center overflow-hidden overscroll-none">
             {/* Grouped container for video and play button - they resize together (same pattern as TVWithVideo) */}
             <div 
-              className="relative aspect-video w-[clamp(300px,65vw,1000px)] max-w-[1000px] max-[900px]:w-[46vw] max-[900px]:min-w-[270px] max-[700px]:w-[42vw] max-[700px]:min-w-[230px] [@media_(max-width:700px)_and_(orientation:portrait)]:w-[88vw] [@media_(max-width:700px)_and_(orientation:portrait)]:min-w-0 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[420px]"
+              className="relative aspect-video w-[clamp(300px,65vw,1000px)] max-w-[1000px] touch-none overflow-hidden overscroll-none max-[900px]:w-[46vw] max-[900px]:min-w-[270px] max-[700px]:w-[42vw] max-[700px]:min-w-[230px] [@media_(max-width:700px)_and_(orientation:portrait)]:w-[88vw] [@media_(max-width:700px)_and_(orientation:portrait)]:min-w-0 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[420px] [@media_(max-width:700px)_and_(orientation:portrait)]:translate-y-10"
             >
               {/* Videos - positioned absolutely to fill container */}
               <div className="absolute inset-0">
