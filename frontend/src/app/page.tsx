@@ -36,7 +36,6 @@ export default function Home(): JSX.Element {
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const holdIntentRef = useRef(false);
   const fadeInTimer = useRef<NodeJS.Timeout | null>(null);
-  const audioStartFrame = useRef<number | null>(null);
   const audioStartTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -265,14 +264,11 @@ export default function Home(): JSX.Element {
       })();
     };
 
-    if (!isMobile && video) {
-      audioStartFrame.current = requestAnimationFrame(() => {
-        audioStartFrame.current = null;
-        audioStartTimer.current = setTimeout(() => {
-          audioStartTimer.current = null;
-          startAudio();
-        }, 0);
-      });
+    if (video) {
+      audioStartTimer.current = setTimeout(() => {
+        audioStartTimer.current = null;
+        startAudio();
+      }, isMobile ? 180 : 0);
     }
   }, [isMobile, triggered]);
 
@@ -290,11 +286,6 @@ export default function Home(): JSX.Element {
     if (fadeInTimer.current) {
       clearInterval(fadeInTimer.current);
       fadeInTimer.current = null;
-    }
-
-    if (audioStartFrame.current !== null) {
-      cancelAnimationFrame(audioStartFrame.current);
-      audioStartFrame.current = null;
     }
 
     if (audioStartTimer.current) {
