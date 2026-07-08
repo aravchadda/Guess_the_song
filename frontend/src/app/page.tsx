@@ -498,21 +498,22 @@ export default function Home(): JSX.Element {
             Hold{" "}
             <Spacebar
               pressed={isSpacePressed}
-              onMouseDown={async (e) => {
+              label={isMobile ? 'Here' : undefined}
+              onMouseDown={isMobile ? undefined : async (e) => {
                 if (!triggered) {
                   e.preventDefault();
                   setIsSpacePressed(true);
                   await startHold();
                 }
               }}
-              onMouseUp={(e) => {
+              onMouseUp={isMobile ? undefined : (e) => {
                 if (!triggered) {
                   e.preventDefault();
                   setIsSpacePressed(false);
                   stopHold();
                 }
               }}
-              onMouseLeave={(e) => {
+              onMouseLeave={isMobile ? undefined : (e) => {
                 if (!triggered) {
                   e.preventDefault();
                   setIsSpacePressed(false);
