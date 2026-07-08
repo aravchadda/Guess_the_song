@@ -36,7 +36,6 @@ export default function Home(): JSX.Element {
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const holdIntentRef = useRef(false);
   const fadeInTimer = useRef<NodeJS.Timeout | null>(null);
-  const audioStartTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -229,12 +228,15 @@ export default function Home(): JSX.Element {
         video.muted = false;
         video.volume = 0;
 
-        try {
-          await audioCtxRef.current!.resume();
-          await video.play();
-        } catch (err) {
+        const audioContext = audioCtxRef.current!;
+        const resumeAudio = audioContext.resume().catch((err) => {
+          console.log("Audio resume error:", err);
+        });
+        const playVideo = video.play().catch((err) => {
           console.log("Playback error:", err);
-        }
+        });
+
+        await Promise.all([resumeAudio, playVideo]);
 
         if (!holdIntentRef.current || triggered) {
           video.pause();
@@ -264,13 +266,8 @@ export default function Home(): JSX.Element {
       })();
     };
 
-    if (video) {
-      audioStartTimer.current = setTimeout(() => {
-        audioStartTimer.current = null;
-        startAudio();
-      }, isMobile ? 180 : 0);
-    }
-  }, [isMobile, triggered]);
+    startAudio();
+  }, [triggered]);
 
   // Shared function to stop holding
   const stopHold = useCallback(() => {
@@ -286,11 +283,6 @@ export default function Home(): JSX.Element {
     if (fadeInTimer.current) {
       clearInterval(fadeInTimer.current);
       fadeInTimer.current = null;
-    }
-
-    if (audioStartTimer.current) {
-      clearTimeout(audioStartTimer.current);
-      audioStartTimer.current = null;
     }
 
     setHoldProgress(0);
