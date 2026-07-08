@@ -34,6 +34,8 @@ export default function Home(): JSX.Element {
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
+  const holdIntentRef = useRef(false);
+  const fadeInTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -155,44 +157,23 @@ export default function Home(): JSX.Element {
   }, []);
 
   // Shared function to start holding
-  const startHold = useCallback(async () => {
+  const startHold = useCallback(() => {
     if (triggered || holdTimer.current) return;
     
-    let startTime = Date.now();
+    holdIntentRef.current = true;
+    const startTime = Date.now();
     const video = document.getElementById("tv-video") as HTMLVideoElement | null;
-
-    if (video) {
-      // 🎵 Setup audio context & filter
-      if (!audioCtxRef.current) {
-        const audioCtx = new AudioContext();
-        const source = audioCtx.createMediaElementSource(video);
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = "highpass";
-        filter.frequency.value = 2000;
-        source.connect(filter);
-        filter.connect(audioCtx.destination);
-        audioCtxRef.current = audioCtx;
-        filterRef.current = filter;
-      }
-
-      video.muted = false;
-      try {
-        await audioCtxRef.current!.resume();
-        await video.play();
-      } catch (err) {
-        console.log("Playback error:", err);
-      }
-
-      // Smooth fade-in for volume
-      video.volume = 0;
-      const fadeIn = setInterval(() => {
-        if (video.volume < 1) video.volume = Math.min(1, video.volume + 0.05);
-        else clearInterval(fadeIn);
-      }, 100);
-    }
 
     // Hold logic (2 seconds)
     holdTimer.current = setInterval(() => {
+      if (!holdIntentRef.current) {
+        if (holdTimer.current) {
+          clearInterval(holdTimer.current);
+          holdTimer.current = null;
+        }
+        return;
+      }
+
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / 2000, 1);
       setHoldProgress(progress);
@@ -224,20 +205,89 @@ export default function Home(): JSX.Element {
         }, 3500);
       }
     }, 20);
+
+    if (video) {
+      void (async () => {
+        // Setup audio context & filter after the visual hold has already started.
+        if (!audioCtxRef.current) {
+          const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+          const audioCtx = new AudioContextCtor();
+          const source = audioCtx.createMediaElementSource(video);
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = "highpass";
+          filter.frequency.value = 2000;
+          source.connect(filter);
+          filter.connect(audioCtx.destination);
+          audioCtxRef.current = audioCtx;
+          filterRef.current = filter;
+        }
+
+        video.muted = false;
+        video.volume = 0;
+
+        try {
+          await audioCtxRef.current!.resume();
+          await video.play();
+        } catch (err) {
+          console.log("Playback error:", err);
+        }
+
+        if (!holdIntentRef.current || triggered) {
+          video.pause();
+          video.muted = true;
+          video.volume = 0;
+          return;
+        }
+
+        if (fadeInTimer.current) clearInterval(fadeInTimer.current);
+        fadeInTimer.current = setInterval(() => {
+          if (!holdIntentRef.current) {
+            if (fadeInTimer.current) {
+              clearInterval(fadeInTimer.current);
+              fadeInTimer.current = null;
+            }
+            video.volume = 0;
+            return;
+          }
+
+          if (video.volume < 1) {
+            video.volume = Math.min(1, video.volume + 0.05);
+          } else if (fadeInTimer.current) {
+            clearInterval(fadeInTimer.current);
+            fadeInTimer.current = null;
+          }
+        }, 100);
+      })();
+    }
   }, [triggered]);
 
   // Shared function to stop holding
   const stopHold = useCallback(() => {
     if (triggered) return;
+
+    holdIntentRef.current = false;
     
     if (holdTimer.current) {
       clearInterval(holdTimer.current);
       holdTimer.current = null;
     }
+
+    if (fadeInTimer.current) {
+      clearInterval(fadeInTimer.current);
+      fadeInTimer.current = null;
+    }
+
     setHoldProgress(0);
 
     if (filterRef.current && audioCtxRef.current) {
       filterRef.current.frequency.setValueAtTime(2000, audioCtxRef.current.currentTime);
+    }
+
+    const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+    if (video) {
+      video.pause();
+      video.muted = true;
+      video.volume = 0;
     }
   }, [triggered]);
 
@@ -247,7 +297,7 @@ export default function Home(): JSX.Element {
     
     e.preventDefault();
     setIsSpacePressed(true);
-    await startHold();
+    startHold();
   }, [startHold, triggered]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
