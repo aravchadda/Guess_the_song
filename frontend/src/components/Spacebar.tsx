@@ -13,6 +13,7 @@ interface SpacebarProps {
   onClick?: (e: React.MouseEvent) => void;
   style?: CSSProperties;
   className?: string;
+  label?: string;
   /** Optional absolutely-positioned overlay (e.g. a charge-progress fill), rendered above the label */
   overlay?: ReactNode;
 }
@@ -33,6 +34,7 @@ export default function Spacebar({
   onClick,
   style,
   className = '',
+  label = 'Space',
   overlay,
 }: SpacebarProps) {
   return (
@@ -56,6 +58,9 @@ export default function Spacebar({
         // hit-box to cover that same area, or only its top half is clickable.
         minHeight: style?.minHeight ? `calc(${style.minHeight} + 12px)` : undefined,
         userSelect: 'none',
+        touchAction: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        WebkitTouchCallout: 'none',
       }}
     >
       {/* 1. THE HOLLOW 3D DEPTH LAYER */}
@@ -76,7 +81,7 @@ export default function Spacebar({
 
       {/* 3. THE TEXT */}
       <span className="relative z-10 font-mono pointer-events-none text-white mix-blend-difference">
-        Space
+        {label}
       </span>
     </button>
   );

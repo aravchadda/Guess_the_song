@@ -1863,14 +1863,14 @@ function GamePageContent() {
               )}
 
               {song && (
-                <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:grid fixed top-[7.5rem] left-4 right-4 z-10 grid-cols-2 gap-3 text-white">
-                  <div className="rounded-lg border border-[#6f7a8d] bg-[#111820]/80 px-3 py-2 text-left shadow-[0_10px_24px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(255,255,255,0.035)] backdrop-blur-sm">
-                    <p className="text-[8px] uppercase tracking-widest text-[#9aa3b2]">Year</p>
-                    <p className="mt-1 text-lg font-bold leading-none">{song.release_year}</p>
+                <div className="hidden [@media_(max-width:700px)_and_(orientation:portrait)]:grid fixed top-[7.25rem] left-6 right-6 z-10 grid-cols-2 gap-2 text-white">
+                  <div className="rounded-md border border-[#6f7a8d]/80 bg-[#111820]/70 px-2 py-1.5 text-left shadow-[0_8px_18px_rgba(0,0,0,0.28),inset_0_0_12px_rgba(255,255,255,0.025)] backdrop-blur-sm">
+                    <p className="text-[6px] uppercase tracking-widest text-[#9aa3b2]">Year</p>
+                    <p className="mt-0.5 text-sm font-bold leading-none">{song.release_year}</p>
                   </div>
-                  <div className="rounded-lg border border-[#6f7a8d] bg-[#111820]/80 px-3 py-2 text-right shadow-[0_10px_24px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(255,255,255,0.035)] backdrop-blur-sm">
-                    <p className="text-[8px] uppercase tracking-widest text-[#9aa3b2]">Views</p>
-                    <p className="mt-1 text-lg font-bold leading-none">{song.viewcount_formatted}</p>
+                  <div className="rounded-md border border-[#6f7a8d]/80 bg-[#111820]/70 px-2 py-1.5 text-right shadow-[0_8px_18px_rgba(0,0,0,0.28),inset_0_0_12px_rgba(255,255,255,0.025)] backdrop-blur-sm">
+                    <p className="text-[6px] uppercase tracking-widest text-[#9aa3b2]">Views</p>
+                    <p className="mt-0.5 text-sm font-bold leading-none">{song.viewcount_formatted}</p>
                   </div>
                 </div>
               )}
@@ -2071,7 +2071,8 @@ function GamePageContent() {
             {isMobile ? 'Tap and hold' : 'Hold'}{" "}
             <Spacebar
               pressed={isSpacePressed}
-              onMouseDown={(e) => {
+              label={isMobile ? 'Here' : undefined}
+              onMouseDown={isMobile ? undefined : (e) => {
                 e.preventDefault();
                 setIsSpacePressed(true);
                 if (showGameScreen) {
@@ -2085,12 +2086,12 @@ function GamePageContent() {
                   startCarouselHold();
                 }
               }}
-              onMouseUp={(e) => {
+              onMouseUp={isMobile ? undefined : (e) => {
                 e.preventDefault();
                 setIsSpacePressed(false);
                 if (!showGameScreen) stopCarouselHold();
               }}
-              onMouseLeave={(e) => {
+              onMouseLeave={isMobile ? undefined : (e) => {
                 e.preventDefault();
                 setIsSpacePressed(false);
                 if (!showGameScreen) stopCarouselHold();
