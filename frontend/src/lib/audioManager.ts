@@ -19,6 +19,7 @@ export class AudioManager {
   private currentBuffer: AudioBuffer | null = null;
   private volumeGain: number = 1.5; // 50% louder (1.0 = normal, 1.5 = 50% increase)
   private onEndedCallback: (() => void) | null = null;
+  private loadingPromises: Map<string, Promise<void>> = new Map();
   
   /**
    * Initialize audio context (requires user gesture)
@@ -85,25 +86,58 @@ export class AudioManager {
     if (this.buffers.has(key)) {
       return; // Already loaded, skip
     }
-    
-    try {
-      // Fetch audio as ArrayBuffer
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch level${level}: ${response.statusText}`);
-      }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      
-      // Decode audio data
-      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-      
-      // Store in memory
-      this.buffers.set(key, audioBuffer);
-    } catch (error) {
-      console.error(`Error loading level${level}:`, error);
-      throw error;
+
+    const existingLoad = this.loadingPromises.get(key);
+    if (existingLoad) {
+      return existingLoad;
     }
+    
+    const loadPromise = this.fetchAndDecodeWithRetry(url, level, key);
+    this.loadingPromises.set(key, loadPromise);
+
+    try {
+      await loadPromise;
+    } finally {
+      this.loadingPromises.delete(key);
+    }
+  }
+
+  /**
+   * Check if a specific level has already been decoded.
+   */
+  hasLevel(songId: string, level: 1 | 2 | 3): boolean {
+    return this.buffers.has(`${songId}-level${level}`);
+  }
+
+  private async fetchAndDecodeWithRetry(url: string, level: 1 | 2 | 3, key: string): Promise<void> {
+    if (!this.audioContext) {
+      throw new Error('AudioContext not initialized. Call initialize() first.');
+    }
+
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await fetch(url, { cache: attempt === 1 ? 'default' : 'reload' });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch level${level}: ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer.slice(0));
+        this.buffers.set(key, audioBuffer);
+        return;
+      } catch (error) {
+        lastError = error;
+        console.error(`Error loading level${level} (attempt ${attempt}/3):`, error);
+
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 350));
+        }
+      }
+    }
+
+    throw lastError;
   }
   
   /**
@@ -240,4 +274,3 @@ export function getAudioManager(): AudioManager {
   }
   return audioManagerInstance;
 }
-

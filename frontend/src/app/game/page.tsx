@@ -252,7 +252,7 @@ function GamePageContent() {
     const finalGuess = guessText || guess;
     
     // Validation checks
-    if (!playId || !finalGuess.trim() || isFinished) return;
+    if (!playId || !song || !finalGuess.trim() || isFinished) return;
     if (lastGuessedLevel === currentLevel) return; // Already guessed on this level
     
     try {
@@ -310,6 +310,14 @@ function GamePageContent() {
             .sort((a, b) => a - b)[0] as 1 | 2 | 3;
           setCurrentLevel(nextLevel);
           setLastGuessedLevel(null); // Reset for new level
+          setIsLoading(true);
+          await audioManager.current.loadLevel(
+            song.id,
+            nextLevel,
+            song.audio_urls,
+            API_URL
+          );
+          setIsLoading(false);
           setMessage('');
         }
       }
@@ -317,6 +325,7 @@ function GamePageContent() {
       console.error('Error submitting guess:', error);
       const errorMessage = error.message || 'Failed to submit guess';
       setLastGuessedLevel(null);
+      setIsLoading(false);
       
       // If game is already finished on backend, end it
       if (errorMessage.includes('finished')) {
@@ -791,7 +800,7 @@ function GamePageContent() {
         startVideoSequence();
       } catch (loadError) {
         console.error(`Error loading level ${nextLevel}:`, loadError);
-        setMessage(`❌ Error loading audio`);
+        setMessage(`❌ Error loading audio. Tap play to retry.`);
       }
     } catch (error: any) {
       // If skip fails because game is finished, that's okay - just show message
@@ -834,7 +843,7 @@ function GamePageContent() {
     };
   }, [showGameScreen, showFullGameScreen, setupAudioEndCallback]);
 
-  const handlePlay = useCallback(() => {
+  const handlePlay = useCallback(async () => {
     if (!song) return;
     
     if (isPlaying) {
@@ -842,13 +851,32 @@ function GamePageContent() {
       setIsPlaying(false);
       stopVideoSequence();
     } else {
-      // Ensure callback is set before playing
-      setupAudioEndCallback();
-      audioManager.current.play(song.id, currentLevel);
-      setIsPlaying(true);
       const levelNames = ['', 'drums', 'Instruments', 'vocals'];
-      setMessage(`🎵 Playing ${levelNames[currentLevel]}...`);
-      startVideoSequence();
+
+      try {
+        if (!audioManager.current.hasLevel(song.id, currentLevel)) {
+          setIsLoading(true);
+          setMessage('Loading audio...');
+          await audioManager.current.loadLevel(
+            song.id,
+            currentLevel,
+            song.audio_urls,
+            API_URL
+          );
+        }
+
+        // Ensure callback is set before playing
+        setupAudioEndCallback();
+        audioManager.current.play(song.id, currentLevel);
+        setIsPlaying(true);
+        setMessage(`🎵 Playing ${levelNames[currentLevel]}...`);
+        startVideoSequence();
+      } catch (error) {
+        console.error(`Error playing level ${currentLevel}:`, error);
+        setMessage('❌ Error loading audio. Tap play to retry.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   }, [song, isPlaying, currentLevel, stopVideoSequence, startVideoSequence, setupAudioEndCallback]);
 
@@ -1584,7 +1612,7 @@ function GamePageContent() {
               {showFullGameScreen && (
                 <button
                   onClick={handlePlay}
-                  disabled={isFinished}
+                  disabled={isFinished || isLoading}
                   className="absolute border-2 border-white bg-transparent text-white flex items-center justify-center z-10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed rounded-full"
                   style={{
                     bottom: '18.1%',
@@ -1747,7 +1775,7 @@ function GamePageContent() {
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
-                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-10 pointer-events-auto">
+                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-30 pointer-events-auto">
                     <div className="relative overflow-visible rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
                       <div className="absolute inset-0 pointer-events-none rounded-md opacity-20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.14),transparent_24%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
                       <input
@@ -1756,9 +1784,17 @@ function GamePageContent() {
                         onChange={(e) => handleSearchChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
                         placeholder="Type your guess..."
-                        className="relative w-full rounded-md border-0 bg-transparent px-3 py-2 sm:px-4 sm:py-3 [@media_(max-width:900px)_and_(max-height:500px)]:py-1.5 [@media_(max-width:700px)_and_(orientation:portrait)]:py-2.5 text-xs sm:text-sm md:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="relative w-full rounded-md border-0 bg-transparent py-2 pl-3 pr-[5.25rem] sm:py-3 sm:pl-4 sm:pr-28 [@media_(max-width:900px)_and_(max-height:500px)]:py-1.5 [@media_(max-width:700px)_and_(orientation:portrait)]:py-2.5 text-xs sm:text-sm md:text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isFinished || lastGuessedLevel === currentLevel}
                       />
+                      <button
+                        type="button"
+                        onClick={() => handleGuess()}
+                        disabled={isFinished || lastGuessedLevel === currentLevel || !guess.trim()}
+                        className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-md border border-white/80 px-2.5 py-1 text-[9px] font-bold uppercase leading-none text-white transition hover:bg-white hover:text-[#111820] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-white sm:right-2 sm:px-3 sm:py-1.5 sm:text-[10px] md:text-xs"
+                      >
+                        Submit
+                      </button>
 
                       {/* Autocomplete Suggestions */}
                       {showSuggestions && searchResults.length > 0 && (
@@ -1944,6 +1980,66 @@ function GamePageContent() {
                 <div className="mx-auto w-full max-w-[15rem]">
                   <Leaderboard refreshKey={leaderboardRefreshKey} />
                 </div>
+              </div>
+
+              <div className="hidden [@media_(max-width:900px)_and_(max-height:500px)]:flex [@media_(max-width:700px)_and_(orientation:portrait)]:flex fixed left-3 right-3 z-20 flex-col items-center gap-1.5 pointer-events-auto [@media_(max-width:900px)_and_(max-height:500px)]:top-[5.25rem] [@media_(max-width:700px)_and_(orientation:portrait)]:top-[10rem]">
+                <div className="w-full max-w-[22rem] rounded-lg border border-[#6f7a8d] bg-[#111820]/85 px-2 py-1.5 shadow-[0_10px_24px_rgba(0,0,0,0.35),inset_0_0_16px_rgba(255,255,255,0.035)] backdrop-blur-sm">
+                  <p className="mb-1 text-center text-[7px] font-semibold uppercase tracking-widest text-white/60">
+                    Now playing
+                  </p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { level: 1, name: 'Drums', points: '+10' },
+                      { level: 2, name: 'Instruments', points: '+5' },
+                      { level: 3, name: 'Vocals', points: '+1' }
+                    ].map(({ level, name, points }) => {
+                      const isActive =
+                        currentLevel === 1 && level === 1 ||
+                        currentLevel === 2 && level <= 2 ||
+                        currentLevel === 3 && level <= 3;
+
+                      return (
+                        <div
+                          key={level}
+                          className={`flex min-w-0 items-center justify-center gap-1 rounded-md border px-1 py-1 text-[8px] font-semibold leading-none transition-all ${
+                            isActive
+                              ? 'border-white text-white opacity-100'
+                              : 'border-white/25 text-white opacity-35'
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                              isActive ? 'bg-white' : 'border border-white/50'
+                            }`}
+                          />
+                          <span className="min-w-0 truncate">{name}</span>
+                          {level === currentLevel && (
+                            <span className="shrink-0 text-[7px] font-normal opacity-65">{points}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {(() => {
+                  const nextLevel = availableLevels.filter((lvl) => lvl > currentLevel).sort((a, b) => a - b)[0];
+                  const levelNames: Record<number, string> = { 1: 'Drums', 2: 'Instruments', 3: 'Vocals' };
+                  return nextLevel !== undefined && !isFinished && (
+                    <div className="flex flex-col items-center gap-1">
+                      <p className="text-[9px] leading-none text-white/65 [@media_(max-width:900px)_and_(max-height:500px)]:text-[8px]">
+                        Too hard?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleSkip}
+                        className="rounded-md border border-white bg-black/35 px-2.5 py-1 text-[9px] font-semibold leading-none text-white shadow-[0_8px_18px_rgba(0,0,0,0.28)] backdrop-blur-sm transition-opacity hover:opacity-70"
+                      >
+                        Try with {levelNames[nextLevel]}
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
 
               

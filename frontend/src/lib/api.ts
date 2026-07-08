@@ -29,6 +29,29 @@ function notifyIfAuthExpired(response: Response) {
   }
 }
 
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.ok || (response.status < 500 && response.status !== 408 && response.status !== 429)) {
+        return response;
+      }
+
+      lastError = new Error(`Request failed with status ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 350));
+    }
+  }
+
+  throw lastError;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -108,7 +131,7 @@ export interface SearchResult {
  * Start a new play session
  */
 export async function startPlay(mode: 'random' | 'decade', minYear?: number): Promise<PlayResponse> {
-  const response = await fetch(`${API_URL}/api/plays/start`, {
+  const response = await fetchWithRetry(`${API_URL}/api/plays/start`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ mode, minYear }),
@@ -255,4 +278,3 @@ export async function searchSongs(query: string): Promise<SearchResult[]> {
 }
 
 export { API_URL };
-

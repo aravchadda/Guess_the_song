@@ -36,7 +36,6 @@ export default function Home(): JSX.Element {
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const touchStartDelayTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Load video when selectedVideo changes
   useEffect(() => {
@@ -211,12 +210,6 @@ export default function Home(): JSX.Element {
         clearInterval(holdTimer.current!);
         holdTimer.current = null;
         
-        // Clear delay timer if it exists
-        if (touchStartDelayTimer.current) {
-          clearTimeout(touchStartDelayTimer.current);
-          touchStartDelayTimer.current = null;
-        }
-        
         setTriggered(true);
         setHold(true);
 
@@ -237,12 +230,6 @@ export default function Home(): JSX.Element {
   const stopHold = useCallback(() => {
     if (triggered) return;
     
-    // Clear delay timer if it exists
-    if (touchStartDelayTimer.current) {
-      clearTimeout(touchStartDelayTimer.current);
-      touchStartDelayTimer.current = null;
-    }
-    
     if (holdTimer.current) {
       clearInterval(holdTimer.current);
       holdTimer.current = null;
@@ -256,18 +243,11 @@ export default function Home(): JSX.Element {
 
   // Handle mobile touch events
   const handleTouchStart = useCallback(async (e: React.TouchEvent) => {
-    if (triggered || holdTimer.current || touchStartDelayTimer.current) return;
+    if (triggered || holdTimer.current) return;
     
     e.preventDefault();
-    
-    // Add a small delay before starting hold to prevent accidental triggers on tap
     setIsSpacePressed(true);
-    touchStartDelayTimer.current = setTimeout(async () => {
-      if (!triggered && !holdTimer.current) {
-        await startHold();
-      }
-      touchStartDelayTimer.current = null;
-    }, 150); // 150ms delay - if user releases before this, hold won't start
+    await startHold();
   }, [startHold, triggered]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -275,15 +255,6 @@ export default function Home(): JSX.Element {
 
     e.preventDefault();
     setIsSpacePressed(false);
-
-    // Cancel the delay timer if touch ends before hold starts
-    if (touchStartDelayTimer.current) {
-      clearTimeout(touchStartDelayTimer.current);
-      touchStartDelayTimer.current = null;
-      return; // Don't call stopHold if hold never started
-    }
-
-    // Only stop hold if it actually started
     stopHold();
   }, [stopHold, triggered]);
 
@@ -292,15 +263,6 @@ export default function Home(): JSX.Element {
 
     e.preventDefault();
     setIsSpacePressed(false);
-
-    // Cancel the delay timer if touch is cancelled before hold starts
-    if (touchStartDelayTimer.current) {
-      clearTimeout(touchStartDelayTimer.current);
-      touchStartDelayTimer.current = null;
-      return; // Don't call stopHold if hold never started
-    }
-
-    // Only stop hold if it actually started
     stopHold();
   }, [stopHold, triggered]);
 
@@ -464,42 +426,52 @@ export default function Home(): JSX.Element {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.5 }}
-              className="flex flex-col items-center gap-3 sm:gap-6 md:gap-8"
+              className="flex flex-col gap-2.5 sm:gap-6 md:gap-8"
+              style={{
+                alignItems: isMobile ? 'flex-end' : 'flex-end',
+                width: isMobile ? 'auto' : 'auto',
+              }}
             >
-              <Link href="/game?mode=all" className="block">
+              <Link href="/game?mode=all" className={isMobile ? "block w-full" : "block"}>
                 <motion.div
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
                   style={{
                     ...menuButtonStyle,
-                    fontSize: isMobile ? 'clamp(1.05rem, 5.8vw, 1.8rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
+                    textAlign: isMobile ? 'right' : 'right',
                   }}
                 >
                   PLAY ALL
                 </motion.div>
               </Link>
-              <Link href="/game?mode=post00s" className="block">
+              <Link href="/game?mode=post00s" className={isMobile ? "block w-full" : "block"}>
                 <motion.div
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
                   style={{
                     ...menuButtonStyle,
-                    fontSize: isMobile ? 'clamp(1.05rem, 5.8vw, 1.8rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
+                    textAlign: isMobile ? 'right' : 'right',
                   }}
                 >
                   PLAY POST 00s
                 </motion.div>
               </Link>
-              <Link href="/stats" className="block">
+              <Link href="/stats" className={isMobile ? "block w-full" : "block"}>
                 <motion.div
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
                   style={{
                     ...menuButtonStyle,
-                    fontSize: isMobile ? 'clamp(1.05rem, 5.8vw, 1.8rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+                    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
+                    textAlign: isMobile ? 'right' : 'right',
                   }}
                 >
                   USER STATS
