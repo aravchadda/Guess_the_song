@@ -211,6 +211,38 @@ export default function Home(): JSX.Element {
       if (!video || !holdIntentRef.current || triggered) return;
 
       void (async () => {
+        const startFadeIn = () => {
+          if (fadeInTimer.current) clearInterval(fadeInTimer.current);
+          fadeInTimer.current = setInterval(() => {
+            if (!holdIntentRef.current) {
+              if (fadeInTimer.current) {
+                clearInterval(fadeInTimer.current);
+                fadeInTimer.current = null;
+              }
+              video.volume = 0;
+              return;
+            }
+
+            if (video.volume < 1) {
+              video.volume = Math.min(1, video.volume + 0.05);
+            } else if (fadeInTimer.current) {
+              clearInterval(fadeInTimer.current);
+              fadeInTimer.current = null;
+            }
+          }, 100);
+        };
+
+        video.muted = false;
+        video.volume = 0.05;
+        startFadeIn();
+
+        if (isMobile) {
+          void video.play().catch((err) => {
+            console.log("Playback error:", err);
+          });
+          return;
+        }
+
         // Setup audio context & filter after the visual hold has already started.
         if (!audioCtxRef.current) {
           const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
@@ -224,9 +256,6 @@ export default function Home(): JSX.Element {
           audioCtxRef.current = audioCtx;
           filterRef.current = filter;
         }
-
-        video.muted = false;
-        video.volume = 0;
 
         const audioContext = audioCtxRef.current!;
         const resumeAudio = audioContext.resume().catch((err) => {
@@ -244,30 +273,11 @@ export default function Home(): JSX.Element {
           video.volume = 0;
           return;
         }
-
-        if (fadeInTimer.current) clearInterval(fadeInTimer.current);
-        fadeInTimer.current = setInterval(() => {
-          if (!holdIntentRef.current) {
-            if (fadeInTimer.current) {
-              clearInterval(fadeInTimer.current);
-              fadeInTimer.current = null;
-            }
-            video.volume = 0;
-            return;
-          }
-
-          if (video.volume < 1) {
-            video.volume = Math.min(1, video.volume + 0.05);
-          } else if (fadeInTimer.current) {
-            clearInterval(fadeInTimer.current);
-            fadeInTimer.current = null;
-          }
-        }, 100);
       })();
     };
 
     startAudio();
-  }, [triggered]);
+  }, [isMobile, triggered]);
 
   // Shared function to stop holding
   const stopHold = useCallback(() => {
