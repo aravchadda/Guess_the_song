@@ -771,7 +771,7 @@ function GamePageContent() {
       setIsPlaying(false);
       stopVideoSequence();
       
-      const response = await skipLevel(playId);
+      const response = await skipLevel(playId, currentLevel);
       // Use the level from backend response, or advance manually
       const nextLevel = (response.currentLevel || currentLevel + 1) as 1 | 2 | 3;
       setCurrentLevel(nextLevel);

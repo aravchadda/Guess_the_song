@@ -1,10 +1,13 @@
 #!/usr/bin/env ts-node
 /**
  * Database Seeding Script
- * 
+ *
  * Usage: npm run seed
- * 
- * Reads spotify_playlist_tracks.csv and populates MongoDB
+ *
+ * Reads getting_the_data/combined_songs_with_links.csv and populates MongoDB.
+ * Each row's ID (e.g. "0001") maps directly to backend/preprocessed/<ID>/,
+ * which holds level1.mp3 (drums only), level2.mp3 (vocals removed),
+ * level3.mp3 (full mix) - built by the Kaggle notebooks in getting_the_data/.
  */
 
 import mongoose from 'mongoose';
@@ -17,17 +20,20 @@ import Song from '../models/Song';
 // Load environment variables from the single project-root .env
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
-const CSV_PATH = path.join(__dirname, '../../spotify_playlist_tracks.csv');
+const CSV_PATH = path.join(__dirname, '../../../getting_the_data/combined_songs_with_links.csv');
 
 interface SongRow {
-  Song_Name: string;
-  Artists: string;
+  ID: string;
+  Song: string;
+  Artist: string;
+  Year: string;
+  Weeks_in_Charts: string;
+  Rank: string;
   YouTube_Link: string;
   ViewCount: string;
-  Release: string;
 }
 
-interface PreprocessedSong {
+interface SongData {
   name: string;
   artists: string;
   youtube_link: string;
@@ -42,101 +48,103 @@ interface PreprocessedSong {
 }
 
 /**
- * Sanitize song name for filesystem use (only replace truly invalid characters)
- * Matches the logic from preprocess.ts
+ * Every row's ID maps directly to backend/preprocessed/<ID>/level{1,2,3}.mp3.
  */
-function sanitizeSongName(songName: string): string {
-  // Only replace characters that are invalid in Windows filesystem
-  return songName
-    .replace(/[<>:"|?*]/g, '_') // Replace invalid chars
-    .trim();
-}
-
-/**
- * Generate preprocessed paths for a song
- * Matches the logic from preprocess.ts
- */
-function generatePreprocessedPaths(songName: string): { level1: string; level2: string; level3: string } {
-  const sanitizedName = sanitizeSongName(songName);
+function generatePreprocessedPaths(id: string): { level1: string; level2: string; level3: string } {
   return {
-    level1: `/preprocessed/${sanitizedName}/level1.mp3`,
-    level2: `/preprocessed/${sanitizedName}/level2.mp3`,
-    level3: `/preprocessed/${sanitizedName}/level3.mp3`
+    level1: `/preprocessed/${id}/level1.mp3`,
+    level2: `/preprocessed/${id}/level2.mp3`,
+    level3: `/preprocessed/${id}/level3.mp3`
   };
 }
 
 async function seedDatabase() {
   try {
     console.log('🌱 Starting database seed...\n');
-    
-    // Check if CSV file exists
+
     if (!fs.existsSync(CSV_PATH)) {
       console.error(`❌ CSV file not found: ${CSV_PATH}`);
       process.exit(1);
     }
-    
-    // Connect to MongoDB
+
     const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/guess-the-song';
-    console.log(`📡 Connecting to MongoDB: ${MONGODB_URI}`);
+    console.log(`📡 Connecting to MongoDB...`);
     await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB\n');
-    
-    // Read and parse CSV
+
     console.log('📖 Reading CSV file...');
-    const songs: SongRow[] = [];
+    const rows: SongRow[] = [];
     await new Promise<void>((resolve, reject) => {
       fs.createReadStream(CSV_PATH)
         .pipe(csv())
         .on('data', (row: SongRow) => {
-          // Filter out empty rows
-          if (row.Song_Name && row.Song_Name.trim()) {
-            songs.push(row);
+          if (row.ID && row.Song && row.Song.trim()) {
+            rows.push(row);
           }
         })
         .on('end', () => resolve())
         .on('error', (err: Error) => reject(err));
     });
-    
-    console.log(`📊 Found ${songs.length} songs in CSV\n`);
-    
-    // Convert CSV rows to PreprocessedSong format
-    const songsData: PreprocessedSong[] = songs.map((song) => {
-      const songName = song.Song_Name.trim();
-      const artists = song.Artists.trim();
-      const releaseYear = parseFloat(song.Release);
+
+    console.log(`📊 Found ${rows.length} songs in CSV\n`);
+
+    const preprocessedDir = path.join(__dirname, '../../preprocessed');
+    const songsData: SongData[] = [];
+    const missingAudio: string[] = [];
+
+    for (const row of rows) {
+      const id = row.ID.trim();
+      const name = row.Song.trim();
+      const artists = row.Artist.trim();
+      const releaseYear = parseInt(row.Year, 10);
       const decade = Math.floor(releaseYear / 10) * 10;
-      // Handle ViewCount with spaces and commas
-      const viewcount = parseInt(song.ViewCount.replace(/[,\s]/g, '').trim());
-      
-      return {
-        name: songName,
-        artists: artists,
-        youtube_link: song.YouTube_Link.trim(),
-        viewcount: viewcount,
+      const viewcount = parseInt(row.ViewCount, 10) || 0;
+      const preprocessed = generatePreprocessedPaths(id);
+
+      // Verify all three levels actually exist on disk before seeding this
+      // song - catches a mismatched/incomplete preprocessed/ folder early
+      // rather than shipping a song that 404s in the game.
+      const songDir = path.join(preprocessedDir, id);
+      const allLevelsExist = ['level1.mp3', 'level2.mp3', 'level3.mp3'].every((f) =>
+        fs.existsSync(path.join(songDir, f))
+      );
+      if (!allLevelsExist) {
+        missingAudio.push(id);
+        continue;
+      }
+
+      songsData.push({
+        name,
+        artists,
+        youtube_link: row.YouTube_Link ? row.YouTube_Link.trim() : '',
+        viewcount,
         release_year: releaseYear,
-        decade: decade,
-        preprocessed: generatePreprocessedPaths(songName)
-      };
-    });
-    
-    // Clear existing songs (optional - comment out if you want to keep existing)
+        decade,
+        preprocessed
+      });
+    }
+
+    if (missingAudio.length > 0) {
+      console.warn(`⚠️  Skipping ${missingAudio.length} songs missing audio on disk: ${missingAudio.slice(0, 10).join(', ')}${missingAudio.length > 10 ? ', ...' : ''}\n`);
+    }
+
+    // Clear existing songs (this is a full re-seed, not an incremental upsert)
     const existingCount = await Song.countDocuments();
     if (existingCount > 0) {
       console.log(`⚠️  Found ${existingCount} existing songs. Clearing...`);
       await Song.deleteMany({});
       console.log('✅ Cleared existing songs\n');
     }
-    
-    // Insert songs
+
     console.log('📥 Inserting songs...');
     let insertedCount = 0;
     let failedCount = 0;
-    
+
     for (const songData of songsData) {
       try {
         await Song.create(songData);
         insertedCount++;
-        if (insertedCount % 10 === 0) {
+        if (insertedCount % 100 === 0) {
           console.log(`   Inserted ${insertedCount}/${songsData.length}...`);
         }
       } catch (error: any) {
@@ -144,20 +152,19 @@ async function seedDatabase() {
         failedCount++;
       }
     }
-    
+
     console.log('\n' + '='.repeat(60));
     console.log('✅ Database seeding complete!');
     console.log(`   Inserted: ${insertedCount} songs`);
     console.log(`   Failed: ${failedCount} songs`);
+    console.log(`   Skipped (missing audio): ${missingAudio.length} songs`);
     console.log('='.repeat(60));
-    
-    // Show some stats
+
     const totalSongs = await Song.countDocuments();
     const decades = await Song.distinct('decade');
     console.log(`\n📊 Database Stats:`);
     console.log(`   Total Songs: ${totalSongs}`);
     console.log(`   Decades: ${decades.sort().join(', ')}`);
-    
   } catch (error) {
     console.error('❌ Seeding failed:', error);
     process.exit(1);
@@ -171,4 +178,3 @@ async function seedDatabase() {
 if (require.main === module) {
   seedDatabase();
 }
-
