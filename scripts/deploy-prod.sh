@@ -19,26 +19,36 @@ if [ ! -d "$PROJECT_ROOT/backend/preprocessed" ] || [ -z "$(ls -A "$PROJECT_ROOT
 fi
 
 # Build backend
-echo "[1/5] Building backend..."
+echo "[1/6] Building backend..."
 cd "$PROJECT_ROOT/backend"
 npm install --production=false
 npm run build
 
 # Build frontend
-echo "[2/5] Building frontend..."
+echo "[2/6] Building frontend..."
 cd "$PROJECT_ROOT/frontend"
 npm install --production=false
 npm run build
 
+# TEMPORARY - remove this step once this has run once in production and
+# you've confirmed (npm run migrate-plays prints a summary) that the old
+# "plays" collection's history is correctly rolled up into User counters,
+# and you've dropped the "plays" collection. Safe to re-run in the meantime
+# (idempotent - recomputes from "plays" each time), and it's a no-op once
+# "plays" is gone.
+echo "[3/6] Migrating legacy plays data to User counters..."
+cd "$PROJECT_ROOT/backend"
+npm run migrate-plays
+
 # Seed the database from getting_the_data/combined_songs_with_links.csv.
 # Safe to re-run on every deploy: it only replaces the Song catalog, never
 # touches User accounts/points/stats.
-echo "[3/5] Seeding database..."
+echo "[4/6] Seeding database..."
 cd "$PROJECT_ROOT/backend"
 npm run seed
 
 # Setup PM2
-echo "[4/5] Configuring PM2..."
+echo "[5/6] Configuring PM2..."
 pm2 delete guess-backend 2>/dev/null || true
 pm2 delete guess-frontend 2>/dev/null || true
 
@@ -50,7 +60,7 @@ pm2 start npm --name guess-frontend -- start
 
 pm2 save
 
-echo "[5/5] Setting up PM2 startup..."
+echo "[6/6] Setting up PM2 startup..."
 pm2 startup
 
 echo ""
