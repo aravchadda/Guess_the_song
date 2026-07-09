@@ -1,57 +1,92 @@
 import os
+import shutil
+import threading
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import pandas as pd
 import yt_dlp
 from yt_dlp.utils import download_range_func
 
 # Configuration
-CSV_FILE = 'spotify_playlist_tracks.csv'  # Replace with your CSV filename
-OUTPUT_FOLDER = 'music_collection'
-START_TIME = 40 # seconds
+CSV_FILE = 'combined_songs_with_links.csv'
+OUTPUT_FOLDER = '../music_collection'
+BACKUP_DIR = 'temp_backups'
+START_TIME = 40  # seconds
 END_TIME = 65    # seconds
+MAX_WORKERS = 4  # concurrent downloads
 
-# Create output folder if it doesn't exist
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+os.makedirs(BACKUP_DIR, exist_ok=True)
 
-# Read the CSV file
-df = pd.read_csv(CSV_FILE)
+ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-# Process each video link
-for idx, row in df.iterrows():
+# Read the CSV file (ID must stay a zero-padded string, e.g. "0001" -- otherwise
+# pandas infers it as an int and strips the leading zeros, breaking filenames)
+df = pd.read_csv(CSV_FILE, dtype={'ID': str})
+
+shutil.copy(CSV_FILE, f'{BACKUP_DIR}/combined_songs_with_links_{ts}_pre_download.csv')
+
+
+def download_song(row):
     youtube_link = row['YouTube_Link']
-    song_name = row['Song_Name']
-    
+    song_name = row['Song']
+    song_id = row['ID']
+
+    if pd.isna(youtube_link):
+        return song_name, 'skipped (no link)'
+
+    output_path = os.path.join(OUTPUT_FOLDER, f'{song_id}.mp3')
+
+    if os.path.exists(output_path):
+        return song_name, 'skipped (already exists)'
+
+    download_opts = {
+        'format': 'bestaudio/best',
+        'download_ranges': download_range_func(None, [(START_TIME, END_TIME)]),
+        'force_keyframes_at_cuts': True,
+        'outtmpl': output_path.replace('.mp3', '.%(ext)s'),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True,
+        'no_warnings': True,
+    }
+
     try:
-        # Use the song name from CSV (no cleaning/modification)
-        safe_title = song_name
-        
-        # Download the audio segment (20s to 45s)
-        output_path = os.path.join(OUTPUT_FOLDER, f'{safe_title}.mp3')
-        
-        # Check if file already exists
-        if os.path.exists(output_path):
-            print(f"⊙ Skipped (already exists): {safe_title}")
-            continue
-        
-        download_opts = {
-            'format': 'bestaudio/best',
-            'download_ranges': download_range_func(None, [(START_TIME, END_TIME)]),
-            'force_keyframes_at_cuts': True,
-            'outtmpl': output_path.replace('.mp3', '.%(ext)s'),
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'quiet': True,
-            'no_warnings': True,
-        }
-        
         with yt_dlp.YoutubeDL(download_opts) as ydl:
             ydl.download([youtube_link])
-        
-        print(f"✓ Downloaded: {safe_title}")
-        
+        return song_name, 'downloaded'
     except Exception as e:
-        print(f"✗ Error processing {youtube_link}: {str(e)}")
+        return song_name, f'error: {e}'
 
-print(f"\n✓ Audio files saved in: {OUTPUT_FOLDER}/")
+
+rows = [row for _, row in df.iterrows()]
+lock = threading.Lock()
+completed = 0
+counts = {'downloaded': 0, 'skipped': 0, 'error': 0}
+
+print(f"Processing {len(rows)} songs with {MAX_WORKERS} concurrent workers...\n")
+
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    futures = {executor.submit(download_song, row): row['Song'] for row in rows}
+    for future in as_completed(futures):
+        song_name, status = future.result()
+        with lock:
+            completed += 1
+            if status == 'downloaded':
+                counts['downloaded'] += 1
+                symbol = 'OK'
+            elif status.startswith('skipped'):
+                counts['skipped'] += 1
+                symbol = 'SKIP'
+            else:
+                counts['error'] += 1
+                symbol = 'ERR'
+            safe_name = song_name.encode('ascii', 'replace').decode('ascii')
+            print(f"[{completed}/{len(rows)}] {symbol} {status}: {safe_name}")
+
+print(f"\nDone. Downloaded: {counts['downloaded']}, Skipped: {counts['skipped']}, Errors: {counts['error']}")
+print(f"Audio files saved in: {OUTPUT_FOLDER}/")

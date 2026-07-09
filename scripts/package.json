@@ -1,20 +1,6 @@
 {
   "name": "guess-the-song-scripts",
   "version": "1.0.0",
-  "description": "Preprocessing and seeding scripts",
-  "scripts": {
-    "preprocess": "ts-node preprocess.ts",
-    "seed": "ts-node seed.ts"
-  },
-  "dependencies": {
-    "csv-parser": "^3.0.0",
-    "mongoose": "^8.0.3",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "@types/node": "^20.10.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
-  }
+  "description": "Deployment/dev-environment shell scripts. Preprocessing now happens via getting_the_data/kaggle_level_pipeline.ipynb + build_preprocessed_folders.py, and seeding via backend's own `npm run seed` (backend/src/scripts/seed.ts) - see setup.sh."
 }
 

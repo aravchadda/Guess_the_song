@@ -1,167 +1,91 @@
 import pandas as pd
-from googleapiclient.discovery import build
-import time
+import yt_dlp
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import shutil
+import os
+from datetime import datetime
 
-# Your existing API key
-YOUTUBE_API_KEY = 'AIzaSyBcjt0f5foEt6YW9yiBbAWFzQsqhNiTh-E'
+CSV_FILE = 'combined_songs_with_links.csv'
+BACKUP_DIR = 'temp_backups'
+MAX_WORKERS = 8  # concurrent yt-dlp searches
+SAVE_EVERY = 25  # checkpoint frequency
+
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
 
 def search_youtube_by_title(song_title, artist_name):
-    youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-    search_query = f"{song_title} {artist_name}"
+    """Search YouTube (via yt-dlp, no API/quota involved), get the top 5 results,
+    and return the link + view count of whichever has the most views."""
+    query = f"ytsearch5:{song_title} {artist_name}"
+    opts = {'quiet': True, 'no_warnings': True, 'extract_flat': False}
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+        entries = [e for e in (info.get('entries') or []) if e]
+        if not entries:
+            return None, None
+        best = max(entries, key=lambda e: e.get('view_count') or 0)
+        views = best.get('view_count')
+        link = best.get('webpage_url')
+        if link and views:
+            return link, views
+        return None, None
 
-    # Search for the video - get top 5 results
-    request = youtube.search().list(
-        part='id,snippet',
-        type='video',
-        q=search_query,
-        maxResults=5,  # Get top 5 results
-        videoCategoryId='10'  # Music category
-    )
-    
-    response = request.execute()
-    
-    if response['items']:
-        # Collect all video IDs from top 5 results
-        video_ids = [item['id']['videoId'] for item in response['items']]
-        
-        # Get video statistics for all videos at once
-        video_request = youtube.videos().list(
-            part='statistics',
-            id=','.join(video_ids)
-        )
-        video_response = video_request.execute()
-        
-        if video_response['items']:
-            # Find the video with the highest view count
-            best_video = None
-            max_views = 0
-            
-            for video in video_response['items']:
-                view_count = int(video['statistics']['viewCount'])
-                if view_count > max_views:
-                    max_views = view_count
-                    best_video = video['id']
-            
-            if best_video:
-                video_url = f"https://www.youtube.com/watch?v={best_video}"
-                return video_url, max_views
-    
-    return None, None
 
-# Read the CSV
-df = pd.read_csv('spotify_playlist_tracks.csv')
+ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-# Strip whitespace from column names
+# Read the combined CSV
+df = pd.read_csv(CSV_FILE)
 df.columns = df.columns.str.strip()
 
-# Strip whitespace from data values (song names and artists)
-df['Song_Name'] = df['Song_Name'].astype(str).str.strip()
-df['Artists'] = df['Artists'].astype(str).str.strip()
-
-# Initialize ViewCount column if it doesn't exist
-if 'ViewCount' not in df.columns:
-    df['ViewCount'] = None
-
-# Convert ViewCount to numeric, handling any non-numeric values
 df['ViewCount'] = pd.to_numeric(df['ViewCount'], errors='coerce')
 
-print(f"\n📊 Total songs in dataset: {len(df)}")
-print(f"📊 Songs with existing view counts: {df['ViewCount'].notna().sum()}")
-print(f"📊 Songs needing view count updates: {df['ViewCount'].isna().sum()}")
+shutil.copy(CSV_FILE, f'{BACKUP_DIR}/combined_songs_with_links_{ts}_pre_ytlinks.csv')
 
-# ============================================
-# STEP 1: UPDATE VIEW COUNTS FOR ALL SONGS
-# ============================================
-print("\n" + "="*60)
-print("STEP 1: Updating view counts for all songs...")
-print("="*60)
+# Only fetch for rows that don't already have a link (existing links/views are kept as-is)
+todo = df[df['YouTube_Link'].isna()].index.tolist()
 
-total_songs = len(df)
-for idx, (index, row) in enumerate(df.iterrows(), 1):
-    song = row['Song_Name']
-    artist = row['Artists']
-    current_views = row['ViewCount']
-    
-    print(f"\n[{idx}/{total_songs}] Searching YouTube for: {song} by {artist}")
-    
+print(f"\nTotal songs in dataset: {len(df)}")
+print(f"Songs with existing YouTube links (kept as-is): {len(df) - len(todo)}")
+print(f"Songs needing YouTube lookup: {len(todo)}")
+print(f"Using {MAX_WORKERS} concurrent workers\n")
+
+
+def process_row(idx):
+    song = df.at[idx, 'Song']
+    artist = df.at[idx, 'Artist']
     try:
         link, views = search_youtube_by_title(song, artist)
-        
-        if link and views:
-            df.at[index, 'YouTube_Link'] = link
-            df.at[index, 'ViewCount'] = views
-            if pd.notna(current_views):
-                change = views - current_views
-                print(f"✅ Updated: {link} with {views:,} views (change: {change:+,})")
-            else:
-                print(f"✅ Found: {link} with {views:,} views")
-        else:
-            print(f"❌ No video found for {song}")
+        return idx, song, artist, link, views, None
     except Exception as e:
-        print(f"❌ Error with {song}: {e}")
-    
-    time.sleep(1)  # To avoid hitting rate limits
+        return idx, song, artist, None, None, str(e)
 
-# Save intermediate results
-df.to_csv('spotify_playlist_tracks.csv', index=False)
-print("\n💾 Intermediate results saved!")
 
-# ============================================
-# STEP 2: SORT BY VIEW COUNT AND PROCESS 100 LEAST VIEWED
-# ============================================
-print("\n" + "="*60)
-print("STEP 2: Sorting by view count and processing 100 least viewed songs...")
-print("="*60)
+lock = threading.Lock()
+completed = 0
 
-# Sort by ViewCount (ascending - lowest first), putting NaN values last
-df = df.sort_values('ViewCount', ascending=True, na_position='last').reset_index(drop=True)
-
-print(f"\n📊 View count statistics:")
-print(f"   Min views: {df['ViewCount'].min():,.0f}")
-print(f"   Max views: {df['ViewCount'].max():,.0f}")
-print(f"   Mean views: {df['ViewCount'].mean():,.0f}")
-
-# Get the 100 rows with least views
-bottom_100 = df.head(100)
-print(f"\n🔄 Processing 100 songs with least views...")
-print(f"   View count range: {bottom_100['ViewCount'].min():,.0f} to {bottom_100['ViewCount'].max():,.0f}")
-
-# Track indices to remove (songs with less than 1 million views)
-indices_to_remove = []
-
-for idx, (index, row) in enumerate(bottom_100.iterrows(), 1):
-    song = row['Song_Name']
-    artist = row['Artists']
-    current_views = row['ViewCount']
-    
-    print(f"\n[{idx}/100] Re-checking: {song} by {artist} (current: {current_views:,.0f} views)")
-    
-    try:
-        link, views = search_youtube_by_title(song, artist)
-        
-        if link and views:
-            if views < 1000000:
-                print(f"🗑️  Skipping {song} - view count {views:,} is below 1 million")
-                indices_to_remove.append(index)
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    futures = {executor.submit(process_row, idx): idx for idx in todo}
+    for future in as_completed(futures):
+        idx, song, artist, link, views, err = future.result()
+        with lock:
+            completed += 1
+            if err:
+                print(f"[{completed}/{len(todo)}] Error with {song}: {err}")
+            elif link:
+                df.at[idx, 'YouTube_Link'] = link
+                df.at[idx, 'ViewCount'] = views
+                print(f"[{completed}/{len(todo)}] Found: {song} by {artist} -> {views:,} views")
             else:
-                df.at[index, 'YouTube_Link'] = link
-                df.at[index, 'ViewCount'] = views
-                print(f"✅ Updated: {link} with {views:,} views")
-        else:
-            print(f"❌ No video found for {song}")
-            indices_to_remove.append(index)
-    except Exception as e:
-        print(f"❌ Error with {song}: {e}")
-        indices_to_remove.append(index)
-    
-    time.sleep(1)  # To avoid hitting rate limits
+                print(f"[{completed}/{len(todo)}] No video found for {song}")
 
-# Remove songs with less than 1 million views
-if indices_to_remove:
-    print(f"\n🗑️  Removing {len(indices_to_remove)} songs with less than 1 million views...")
-    df = df.drop(indices_to_remove).reset_index(drop=True)
+            if completed % SAVE_EVERY == 0:
+                df.to_csv(CSV_FILE, index=False)
+                shutil.copy(CSV_FILE, f'{BACKUP_DIR}/combined_songs_with_links_{ts}_progress_{completed}.csv')
+                print(f"   (checkpoint saved at {completed}/{len(todo)})")
 
-# Save final results to the CSV
-df.to_csv('spotify_playlist_tracks.csv', index=False)
-print("\n✅ Done! Final results saved to spotify_playlist_tracks.csv")
-print(f"📊 Final dataset contains {len(df)} songs")
+# Final save
+df.to_csv(CSV_FILE, index=False)
+shutil.copy(CSV_FILE, f'{BACKUP_DIR}/combined_songs_with_links_{ts}_final.csv')
+
+print(f"\nDone. {df['YouTube_Link'].notna().sum()}/{len(df)} songs now have a YouTube link.")

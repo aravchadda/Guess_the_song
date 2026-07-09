@@ -1,42 +1,75 @@
 import { Router, Request, Response } from 'express';
-import Play from '../models/Play';
-import User from '../models/User';
+import User, { IUser } from '../models/User';
 import { requireAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
 
+interface StatsTotals {
+  drums: number;
+  instruments: number;
+  vocals: number;
+  failed: number;
+  songsPlayed: number;
+}
+
 /**
- * Compute play statistics for an optional filter (e.g. a single user).
+ * Build the public Stats shape from a set of raw totals (either one user's
+ * counters, or a sum across all users).
  */
-async function computeStats(filter: Record<string, any> = {}) {
-  const totalPlays = await Play.countDocuments(filter);
-  const correctPlays = await Play.countDocuments({ ...filter, wasCorrect: true });
+function buildStats(totals: StatsTotals) {
+  const correctPlays = totals.drums + totals.instruments + totals.vocals;
+  const totalPlays = correctPlays + totals.failed;
 
-  const level1 = await Play.countDocuments({ ...filter, wasCorrect: true, guessedLevel: 1 });
-  const level2 = await Play.countDocuments({ ...filter, wasCorrect: true, guessedLevel: 2 });
-  const level3 = await Play.countDocuments({ ...filter, wasCorrect: true, guessedLevel: 3 });
-  const failed = await Play.countDocuments({ ...filter, wasCorrect: false, finishedAt: { $exists: true } });
-
-  const successfulPlays = await Play.find({ ...filter, wasCorrect: true }).select('guessedLevel');
-  const averageLevel = successfulPlays.length > 0
-    ? successfulPlays.reduce((sum, play) => sum + (play.guessedLevel || 0), 0) / successfulPlays.length
-    : 0;
+  const averageLevel =
+    correctPlays > 0
+      ? (1 * totals.drums + 2 * totals.instruments + 3 * totals.vocals) / correctPlays
+      : 0;
 
   return {
     totalPlays,
     correctPlays,
     averageLevel: parseFloat(averageLevel.toFixed(2)),
-    distribution: { level1, level2, level3, failed }
+    distribution: {
+      level1: totals.drums,
+      level2: totals.instruments,
+      level3: totals.vocals,
+      failed: totals.failed
+    }
   };
 }
 
 /**
  * GET /api/stats
- * Get global statistics
+ * Global statistics, summed across every signed-in user's counters.
+ *
+ * Note: unlike the old Play-collection design, guest (unauthenticated) plays
+ * are never persisted anywhere, so they no longer contribute to this total -
+ * only signed-in users' outcomes are counted.
  */
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    res.json(await computeStats());
+    const agg = await User.aggregate([
+      {
+        $group: {
+          _id: null,
+          drums: { $sum: '$successfulGuesses.drums' },
+          instruments: { $sum: '$successfulGuesses.instruments' },
+          vocals: { $sum: '$successfulGuesses.vocals' },
+          failed: { $sum: '$failedGuesses' },
+          songsPlayed: { $sum: '$songsPlayed' }
+        }
+      }
+    ]);
+
+    const totals: StatsTotals = agg[0] || {
+      drums: 0,
+      instruments: 0,
+      vocals: 0,
+      failed: 0,
+      songsPlayed: 0
+    };
+
+    res.json(buildStats(totals));
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -45,16 +78,31 @@ router.get('/', async (_req: Request, res: Response) => {
 
 /**
  * GET /api/stats/me
- * Get statistics for the authenticated user only
+ * Statistics for the authenticated user only, read directly off their
+ * User document (no aggregation needed - it's just that one document).
  */
 router.get('/me', requireAuth, async (req: AuthedRequest, res: Response) => {
   try {
-    const base = await computeStats({ userId: req.userId });
-    const user = await User.findById(req.userId).select('totalPoints songsPlayed successfulGuesses');
+    const user = await User.findById(req.userId).select(
+      'totalPoints songsPlayed successfulGuesses failedGuesses'
+    );
 
-    const totalPoints = user?.totalPoints || 0;
-    const songsPlayed = user?.songsPlayed || 0;
-    const successfulGuesses = user?.successfulGuesses || 0;
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const totals: StatsTotals = {
+      drums: user.successfulGuesses?.drums || 0,
+      instruments: user.successfulGuesses?.instruments || 0,
+      vocals: user.successfulGuesses?.vocals || 0,
+      failed: user.failedGuesses || 0,
+      songsPlayed: user.songsPlayed || 0
+    };
+
+    const base = buildStats(totals);
+    const totalPoints = user.totalPoints || 0;
+    const songsPlayed = user.songsPlayed || 0;
+    const successfulGuesses = base.correctPlays;
 
     res.json({
       ...base,
@@ -71,4 +119,3 @@ router.get('/me', requireAuth, async (req: AuthedRequest, res: Response) => {
 });
 
 export default router;
-

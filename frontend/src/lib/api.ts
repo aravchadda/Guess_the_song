@@ -128,21 +128,25 @@ export interface SearchResult {
 }
 
 /**
- * Start a new play session
+ * Start a new round by picking a random song.
+ *
+ * Stateless on the backend now (no persisted play session) - `playId` in the
+ * response is just the song's id, kept under that name so call sites below
+ * don't need to change.
  */
 export async function startPlay(mode: 'random' | 'decade', minYear?: number): Promise<PlayResponse> {
-  const response = await fetchWithRetry(`${API_URL}/api/plays/start`, {
+  const response = await fetchWithRetry(`${API_URL}/api/songs/random`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ mode, minYear }),
   });
-  
+
   if (!response.ok) {
     notifyIfAuthExpired(response);
     const error = await response.json();
     throw new Error(error.error || 'Failed to start play');
   }
-  
+
   return response.json();
 }
 
@@ -150,36 +154,39 @@ export async function startPlay(mode: 'random' | 'decade', minYear?: number): Pr
  * Submit a guess
  */
 export async function submitGuess(playId: string, guess: string, level?: number): Promise<GuessResponse> {
-  const response = await fetch(`${API_URL}/api/plays/${playId}/guess`, {
+  const response = await fetch(`${API_URL}/api/songs/${playId}/guess`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ guess, level }),
   });
-  
+
   if (!response.ok) {
     notifyIfAuthExpired(response);
     const error = await response.json();
     throw new Error(error.error || 'Failed to submit guess');
   }
-  
+
   return response.json();
 }
 
 /**
- * Skip to next level
+ * Skip to next level. Fully deterministic (level+1, capped at 3) now that
+ * every song has all three levels, so the current level has to be passed in
+ * since the backend no longer keeps any session state to read it from.
  */
-export async function skipLevel(playId: string): Promise<SkipResponse> {
-  const response = await fetch(`${API_URL}/api/plays/${playId}/skip`, {
+export async function skipLevel(playId: string, currentLevel: number): Promise<SkipResponse> {
+  const response = await fetch(`${API_URL}/api/songs/${playId}/skip`, {
     method: 'POST',
     headers: authHeaders(),
+    body: JSON.stringify({ currentLevel }),
   });
-  
+
   if (!response.ok) {
     notifyIfAuthExpired(response);
     const error = await response.json();
     throw new Error(error.error || 'Failed to skip');
   }
-  
+
   return response.json();
 }
 

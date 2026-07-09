@@ -115,3 +115,4 @@ env/
 .npm-cache/
 *.tsbuildinfo
 *.zip
+.claude/agent-memory/

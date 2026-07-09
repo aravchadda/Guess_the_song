@@ -12,7 +12,6 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Import routes
 import authRouter from './routes/auth';
-import playsRouter from './routes/plays';
 import statsRouter from './routes/stats';
 import songsRouter from './routes/songs';
 import audioRouter from './routes/audio';
@@ -45,14 +44,13 @@ const guessLimiter = rateLimit({
 
 // Routes
 app.use('/api/auth', authRouter);
-app.use('/api/plays', playsRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/songs', songsRouter);
 app.use('/api/audio', audioRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 
 // Apply rate limiting to guess endpoint
-app.post('/api/plays/:playId/guess', guessLimiter);
+app.post('/api/songs/:id/guess', guessLimiter);
 
 // Serve audio files
 const audioPath = process.env.AUDIO_PATH || path.join(__dirname, '../preprocessed');
