@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/scripts/seed.ts",
+    "migrate-plays": "ts-node src/scripts/migratePlaysToUsers.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },
