@@ -15,7 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import csv from 'csv-parser';
 import dotenv from 'dotenv';
-import Song from '../models/Song';
+import Song, { GENRES, Genre } from '../models/Song';
 
 // Load environment variables from the single project-root .env
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
@@ -31,6 +31,7 @@ interface SongRow {
   Rank: string;
   YouTube_Link: string;
   ViewCount: string;
+  Genre: string;
 }
 
 interface SongData {
@@ -40,11 +41,28 @@ interface SongData {
   viewcount: number;
   release_year: number;
   decade: number;
+  genre: Genre;
   preprocessed: {
     level1: string;
     level2: string;
     level3: string;
   };
+}
+
+/**
+ * The CSV's Genre column is the source of truth (see
+ * getting_the_data/artist_genres.json for how it was originally derived -
+ * each unique Artist string was Haiku-classified once, then joined back onto
+ * every row for that artist). Validate it here rather than trusting it
+ * blindly, in case the CSV gets hand-edited later.
+ */
+function resolveGenre(rawGenre: string, songId: string): Genre {
+  const trimmed = (rawGenre || '').trim();
+  if ((GENRES as readonly string[]).includes(trimmed)) {
+    return trimmed as Genre;
+  }
+  console.warn(`   ⚠️  Invalid/missing genre "${rawGenre}" for song ${songId} - defaulting to Pop`);
+  return 'Pop';
 }
 
 /**
@@ -99,6 +117,7 @@ async function seedDatabase() {
       const releaseYear = parseInt(row.Year, 10);
       const decade = Math.floor(releaseYear / 10) * 10;
       const viewcount = parseInt(row.ViewCount, 10) || 0;
+      const genre = resolveGenre(row.Genre, id);
       const preprocessed = generatePreprocessedPaths(id);
 
       // Verify all three levels actually exist on disk before seeding this
@@ -120,6 +139,7 @@ async function seedDatabase() {
         viewcount,
         release_year: releaseYear,
         decade,
+        genre,
         preprocessed
       });
     }
@@ -165,6 +185,10 @@ async function seedDatabase() {
     console.log(`\n📊 Database Stats:`);
     console.log(`   Total Songs: ${totalSongs}`);
     console.log(`   Decades: ${decades.sort().join(', ')}`);
+    for (const g of GENRES) {
+      const count = await Song.countDocuments({ genre: g });
+      console.log(`   ${g}: ${count}`);
+    }
   } catch (error) {
     console.error('❌ Seeding failed:', error);
     process.exit(1);

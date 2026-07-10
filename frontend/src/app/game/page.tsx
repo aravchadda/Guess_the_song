@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
-import type { Song, GuessResponse, SearchResult } from '@/lib/api';
+import type { Song, GuessResponse, SearchResult, GameFilters, PlayResponse } from '@/lib/api';
 import Carousel from '@/components/Carousel';
 import VideoPlayer from '@/components/VideoPlayer';
 import Leaderboard from '@/components/Leaderboard';
 import Spacebar from '@/components/Spacebar';
+import PreGameScreen from '@/components/PreGameScreen';
 
 // List of album cover filenames
 const albumCovers = [
@@ -109,6 +110,13 @@ function GamePageContent() {
   const [showViews, setShowViews] = useState(false);
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
+  // Pre-game mode selection ("Play All" vs "Play with Filters") - shown on
+  // the TV once cutToGameScreen fires, before a song is actually picked.
+  // The black-screen/year/views reveal sequence only starts once this
+  // resolves (see startRevealSequence), so its delicate timing is untouched.
+  const [gameStarted, setGameStarted] = useState(false);
+  const [filterSubmitting, setFilterSubmitting] = useState(false);
+  const [filterSubmitError, setFilterSubmitError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isPortraitMobile, setIsPortraitMobile] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
@@ -200,16 +208,20 @@ function GamePageContent() {
     }
   }, [currentLevel, song, showGameScreen, isFinished]);
 
-  // Initialize game
-  const initializeGame = useCallback(async () => {
+  // Initialize game.
+  // `filters` switches the backend into filtered mode ("Play with Filters").
+  // `prefetched` lets a caller that already fetched the song (e.g. to
+  // validate filters before starting the reveal animation) skip a second
+  // network round-trip here.
+  const initializeGame = useCallback(async (filters?: GameFilters, prefetched?: PlayResponse) => {
     try {
       setIsLoading(true);
-      
+
       // Reset level to 1
       setCurrentLevel(1);
       setLastGuessedLevel(null);
       setReveal(null);
-      
+
       // Reset video loaded states to ensure videos reload properly
       setVideosLoaded({
         on: false,
@@ -217,9 +229,9 @@ function GamePageContent() {
         off: false,
         overlay: false,
       });
-      
-      // Start play with appropriate mode
-      const playResponse = await startPlay('random', gameMode === 'post00s' ? 2000 : undefined);
+
+      // Start play with appropriate mode (or reuse an already-fetched response)
+      const playResponse = prefetched ?? await startPlay('random', gameMode === 'post00s' ? 2000 : undefined, filters);
 
       setPlayId(playResponse.playId);
       setSong(playResponse.song);
@@ -389,10 +401,15 @@ function GamePageContent() {
     setSearchResults([]);
     setShowSuggestions(false);
     setLastGuessedLevel(null);
-    
+
+    // Reset pre-game selection so the next visit shows Play All / Filters again
+    setGameStarted(false);
+    setFilterSubmitting(false);
+    setFilterSubmitError(null);
+
     // Stop video sequence
     stopVideoSequence();
-    
+
     // Reset video loaded states so videos reload properly on next game
     setVideosLoaded({
       on: false,
@@ -400,14 +417,14 @@ function GamePageContent() {
       off: false,
       overlay: false,
     });
-    
+
     // Reset carousel state
     setIsSpacebarHeld(false);
     speedMultiplierRef.current = 1;
     setSpeedMultiplier(1);
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
-    
+
     // Reset animation sequence states
     setShowBlackScreen(false);
     setShowYear(false);
@@ -419,16 +436,26 @@ function GamePageContent() {
     setShowGameScreen(false);
   };
 
-  // Function to immediately cut to game screen with animation sequence
+  // Function to immediately cut to game screen. This no longer kicks off the
+  // reveal animation directly - it just shows the TV with the pre-game mode
+  // selection screen (see PreGameScreen below). startRevealSequence() is what
+  // actually begins the black-screen/year/views sequence, once the player has
+  // picked "Play All" or completed the filter picker.
   const cutToGameScreen = useCallback(() => {
     if (showGameScreen) return;
 
-    // Start animation sequence
     setShowGameScreen(true);
     setCarouselOpacity(0);
+  }, [showGameScreen]);
+
+  // Kicks off the existing black-screen -> year -> views -> full game screen
+  // reveal sequence. Unchanged from the original cutToGameScreen body, just
+  // extracted so it can be deferred until after mode/filter selection.
+  const startRevealSequence = useCallback((filters?: GameFilters, prefetched?: PlayResponse) => {
+    setGameStarted(true);
     setShowBlackScreen(true);
-    initializeGame();
-    
+    initializeGame(filters, prefetched);
+
     // Sequence: black screen -> year -> views -> full game screen
     setTimeout(() => {
       setShowYear(true);
@@ -480,7 +507,29 @@ function GamePageContent() {
         setShowBlackScreen(false);
       }, 100);
     }, 2000);
-  }, [showGameScreen, initializeGame]);
+  }, [initializeGame]);
+
+  // Called when the player picks "Play All" on the pre-game screen.
+  const handlePlayAll = useCallback(() => {
+    startRevealSequence();
+  }, [startRevealSequence]);
+
+  // Called when the player submits the filter picker. Validates against the
+  // backend *before* starting the reveal animation, so a rejected filter
+  // combo (e.g. failing the >=2-non-1970s-decades rule) shows an inline error
+  // on the filter screen instead of cutting to a broken/empty reveal.
+  const handleSubmitFilters = useCallback(async (filters: GameFilters) => {
+    setFilterSubmitError(null);
+    setFilterSubmitting(true);
+    try {
+      const prefetched = await startPlay('random', undefined, filters);
+      setFilterSubmitting(false);
+      startRevealSequence(filters, prefetched);
+    } catch (error: any) {
+      setFilterSubmitting(false);
+      setFilterSubmitError(error.message || 'Failed to start game with these filters');
+    }
+  }, [startRevealSequence]);
 
   // Preload video with proper buffering
   const preloadVideo = useCallback((video: HTMLVideoElement, src: string): Promise<void> => {
@@ -905,23 +954,28 @@ function GamePageContent() {
     setSearchResults([]);
     setShowSuggestions(false);
     setLastGuessedLevel(null);
-    
+
+    // Reset pre-game selection so the next visit shows Play All / Filters again
+    setGameStarted(false);
+    setFilterSubmitting(false);
+    setFilterSubmitError(null);
+
     // Stop video sequence
     stopVideoSequence();
-    
+
     // Reset animation sequence states
     setShowBlackScreen(false);
     setShowYear(false);
     setShowViews(false);
     setShowFullGameScreen(false);
-    
+
     // Reset carousel state
     setIsSpacebarHeld(false);
     speedMultiplierRef.current = 1;
     setSpeedMultiplier(1);
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
-    
+
     // Hide game screen first, then fade in carousel
     setShowGameScreen(false);
     // Small delay to allow game screen to start fading out
@@ -1651,7 +1705,29 @@ function GamePageContent() {
           </div>
         )}
       </AnimatePresence>
-      
+
+      {/* Pre-game mode selection - shown on the TV once cutToGameScreen fires,
+          before a song has actually been picked. The reveal sequence
+          (black screen/year/views) only begins after this resolves. */}
+      <AnimatePresence>
+        {showGameScreen && !gameStarted && (
+          <motion.div
+            className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto py-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <PreGameScreen
+              onPlayAll={handlePlayAll}
+              onSubmitFilters={handleSubmitFilters}
+              isSubmitting={filterSubmitting}
+              submitError={filterSubmitError}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress Bar - Full width at bottom of screen */}
       {showGameScreen && isPlaying && (
         <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-700 z-30">

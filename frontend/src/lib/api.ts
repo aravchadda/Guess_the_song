@@ -128,17 +128,62 @@ export interface SearchResult {
 }
 
 /**
+ * Options returned by GET /api/songs/filters - what the "Play with Filters"
+ * picker should render, computed from what's actually in the DB.
+ */
+export interface FilterOptions {
+  genres: string[];
+  decades: number[];
+  minDecadesSelected: number;
+  decadeExcludedFromMinimum: number;
+  hindiToggle: boolean;
+}
+
+/**
+ * Filter selection sent to POST /api/songs/random when playing a filtered
+ * round instead of "Play All". `decades` must include at least
+ * `minDecadesSelected` decades not counting `decadeExcludedFromMinimum`
+ * (enforced client-side, and re-validated by the backend).
+ */
+export interface GameFilters {
+  decades: number[];
+  genres?: string[];
+  includeHindi?: boolean;
+}
+
+/**
+ * Fetch the available decades/genres for the filter picker.
+ */
+export async function getFilterOptions(): Promise<FilterOptions> {
+  const response = await fetch(`${API_URL}/api/songs/filters`);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch filter options');
+  }
+
+  return response.json();
+}
+
+/**
  * Start a new round by picking a random song.
  *
  * Stateless on the backend now (no persisted play session) - `playId` in the
  * response is just the song's id, kept under that name so call sites below
  * don't need to change.
+ *
+ * Pass `filters` to switch the backend into filtered mode (`mode`/`minYear`
+ * are ignored server-side in that case). Omit it for the existing
+ * unrestricted "Play All" behavior.
  */
-export async function startPlay(mode: 'random' | 'decade', minYear?: number): Promise<PlayResponse> {
+export async function startPlay(mode: 'random' | 'decade', minYear?: number, filters?: GameFilters): Promise<PlayResponse> {
+  const body = filters
+    ? { filtered: true, decades: filters.decades, genres: filters.genres, includeHindi: filters.includeHindi }
+    : { mode, minYear };
+
   const response = await fetchWithRetry(`${API_URL}/api/songs/random`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ mode, minYear }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
