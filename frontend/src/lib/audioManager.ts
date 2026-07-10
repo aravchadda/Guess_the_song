@@ -235,7 +235,7 @@ export class AudioManager {
   getIsPlaying(): boolean {
     return this.isPlaying;
   }
-  
+
   /**
    * Clear all buffers (cleanup)
    */

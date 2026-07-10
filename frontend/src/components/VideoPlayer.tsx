@@ -1,6 +1,7 @@
 'use client';
 
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef } from 'react';
+import { FaPause, FaPlay } from 'react-icons/fa';
 
 interface VideoPlayerProps {
   onVideoRef: React.RefObject<HTMLVideoElement>;
@@ -57,9 +58,15 @@ const VideoPlayer = forwardRef<HTMLDivElement, VideoPlayerProps>(
           }}
         >
           {isPlaying ? (
-            <span style={{ fontSize: 'clamp(1rem, 3vw, 1.75rem)' }}>⏸</span>
+            <FaPause
+              aria-hidden="true"
+              style={{ width: 'clamp(1rem, 3vw, 1.75rem)', height: 'clamp(1rem, 3vw, 1.75rem)' }}
+            />
           ) : (
-            <span style={{ fontSize: 'clamp(1rem, 3vw, 1.75rem)', marginLeft: '0.125rem' }}>▶</span>
+            <FaPlay
+              aria-hidden="true"
+              style={{ width: 'clamp(1rem, 3vw, 1.75rem)', height: 'clamp(1rem, 3vw, 1.75rem)', marginLeft: '0.125rem' }}
+            />
           )}
         </button>
       </div>
@@ -70,4 +77,3 @@ const VideoPlayer = forwardRef<HTMLDivElement, VideoPlayerProps>(
 VideoPlayer.displayName = 'VideoPlayer';
 
 export default VideoPlayer;
-

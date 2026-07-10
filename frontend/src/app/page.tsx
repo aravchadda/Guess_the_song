@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { GoogleLogin } from "@react-oauth/google";
 import TVWithVideo from "@/components/TVWithVideo";
 import Spacebar from "@/components/Spacebar";
+import SignInPrompt from "@/components/SignInPrompt";
 import { useAuth } from "@/lib/auth";
+import { getFilterOptions } from "@/lib/api";
+import type { FilterOptions } from "@/lib/api";
 
 // List of all videos in compressed folder
 const videos = [
@@ -19,7 +23,13 @@ const videos = [
   "/compressed/tame-impala.mp4",
 ];
 
+const fallbackFilterOptions: FilterOptions = {
+  genres: ['Hindi', 'Hip-Hop', 'Pop', 'R&B', 'Rock'],
+  decades: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020],
+};
+
 export default function Home(): JSX.Element {
+  const searchParams = useSearchParams();
   const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
   const [signInError, setSignInError] = useState("");
   const [hold, setHold] = useState(false);
@@ -33,11 +43,48 @@ export default function Home(): JSX.Element {
   });
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [categoryStep, setCategoryStep] = useState<'root' | 'category' | 'genre' | 'decade'>('root');
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(fallbackFilterOptions);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedDecades, setSelectedDecades] = useState<number[]>([]);
+  const [showCategorySignInPrompt, setShowCategorySignInPrompt] = useState(false);
+  const [skipIntroAnimation, setSkipIntroAnimation] = useState(false);
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
   const holdIntentRef = useRef(false);
   const fadeInTimer = useRef<NodeJS.Timeout | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('menu') !== '1') return;
+
+    setSkipIntroAnimation(true);
+    setTriggered(true);
+    setHold(true);
+    setZoomed(true);
+    setHoldProgress(1);
+    setIsVideoLoading(false);
+  }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getFilterOptions()
+      .then((options) => {
+        if (!cancelled) setFilterOptions(options);
+      })
+      .catch(() => {
+        // Keep the static options usable if the backend is not running yet.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!token || !showCategorySignInPrompt) return;
+    setShowCategorySignInPrompt(false);
+    setCategoryStep('category');
+  }, [showCategorySignInPrompt, token]);
 
   // Load video when selectedVideo changes
   useEffect(() => {
@@ -257,10 +304,11 @@ export default function Home(): JSX.Element {
           filterRef.current = filter;
         }
 
-        const audioContext = audioCtxRef.current!;
-        const resumeAudio = audioContext.resume().catch((err) => {
-          console.log("Audio resume error:", err);
-        });
+        const resumeAudio = !audioCtxRef.current
+          ? Promise.resolve()
+          : audioCtxRef.current.resume().catch((err) => {
+              console.log("Audio resume error:", err);
+            });
         const playVideo = video.play().catch((err) => {
           console.log("Playback error:", err);
         });
@@ -308,6 +356,44 @@ export default function Home(): JSX.Element {
       video.volume = 0;
     }
   }, [triggered]);
+
+  useEffect(() => {
+    if (!skipIntroAnimation || isVideoLoading) return;
+
+    const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+    if (!video) return;
+
+    holdIntentRef.current = true;
+    video.muted = false;
+    video.volume = 1;
+
+    void (async () => {
+      if (!isMobile) {
+        if (!audioCtxRef.current) {
+          const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+          const audioCtx = new AudioContextCtor();
+          const source = audioCtx.createMediaElementSource(video);
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = "highpass";
+          filter.frequency.value = 0;
+          source.connect(filter);
+          filter.connect(audioCtx.destination);
+          audioCtxRef.current = audioCtx;
+          filterRef.current = filter;
+        } else if (filterRef.current && audioCtxRef.current) {
+          filterRef.current.frequency.setValueAtTime(0, audioCtxRef.current.currentTime);
+        }
+
+        await audioCtxRef.current.resume().catch((err) => {
+          console.log("Audio resume error:", err);
+        });
+      }
+
+      await video.play().catch((err) => {
+        console.log("Playback error:", err);
+      });
+    })();
+  }, [isMobile, isVideoLoading, skipIntroAnimation]);
 
   // Handle mobile touch events
   const handleTouchStart = useCallback(async (e: React.TouchEvent) => {
@@ -384,8 +470,95 @@ export default function Home(): JSX.Element {
     letterSpacing: "2px",
   };
 
+  const menuItemStyle = {
+    ...menuButtonStyle,
+    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
+    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
+    textAlign: isMobile ? 'right' as const : 'right' as const,
+  };
+
+  const menuMotionProps = {
+    whileHover: { scale: 1.08 },
+    whileTap: { scale: 0.95 },
+    className: "text-white font-bold cursor-pointer select-none whitespace-nowrap",
+    style: menuItemStyle,
+  };
+
+  const optionMenuItemStyle = {
+    ...menuButtonStyle,
+    fontSize: isMobile ? 'clamp(0.78rem, 3.55vw, 1.08rem)' : 'clamp(0.9rem, 2.2vw, 1.65rem)',
+    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
+    textAlign: 'center' as const,
+  };
+
+  const optionMenuMotionProps = {
+    whileHover: { scale: 1.08 },
+    whileTap: { scale: 0.95 },
+    className: "text-white font-bold cursor-pointer select-none whitespace-nowrap leading-none",
+    style: optionMenuItemStyle,
+  };
+
+  const isOptionMenu = categoryStep === 'genre' || categoryStep === 'decade';
+
+  const handleSelectCategory = () => {
+    if (!token) {
+      setShowCategorySignInPrompt(true);
+      return;
+    }
+
+    setCategoryStep('category');
+  };
+
+  const toggleGenre = (genre: string) => {
+    setSelectedGenres((current) =>
+      current.includes(genre)
+        ? current.filter((selected) => selected !== genre)
+        : [...current, genre]
+    );
+  };
+
+  const toggleDecade = (decade: number) => {
+    setSelectedDecades((current) =>
+      current.includes(decade)
+        ? current.filter((selected) => selected !== decade)
+        : [...current, decade]
+    );
+  };
+
+  const buildCategoryHref = (mode: 'genre' | 'decade') => {
+    const params = new URLSearchParams({ mode });
+    if (mode === 'genre') {
+      params.set('genres', selectedGenres.join(','));
+    } else {
+      params.set('decades', selectedDecades.join(','));
+    }
+    return `/game?${params.toString()}`;
+  };
+
+  const genreStartDisabled = selectedGenres.length === 0;
+  const decadeStartDisabled = selectedDecades.length < 2;
+
+  const checkboxClass = (selected: boolean) =>
+    [
+      "relative inline-flex h-4 w-4 shrink-0 items-center justify-center border-2 sm:h-5 sm:w-5",
+      selected ? "border-white bg-white" : "border-white/80 bg-black/30",
+    ].join(" ");
+
+  const checkboxInnerClass = (selected: boolean) =>
+    [
+      "block h-1.5 w-1.5 sm:h-2 sm:w-2",
+      selected ? "bg-black" : "bg-transparent",
+    ].join(" ");
+
   return (
     <main className="relative h-[100dvh] min-h-[100dvh] flex items-center justify-center bg-[#0E0E10] overflow-hidden">
+      {showCategorySignInPrompt && !token && (
+        <SignInPrompt
+          message="Sign in to choose categories and save your score."
+          onClose={() => setShowCategorySignInPrompt(false)}
+        />
+      )}
+
       {/* Optional sign-in control */}
       {!isAuthLoading && (
         <div className="fixed top-4 right-3 sm:right-6 z-[60] flex flex-col items-end gap-2">
@@ -448,6 +621,7 @@ export default function Home(): JSX.Element {
         <TVWithVideo 
           videoSrc={selectedVideo} 
           hold={hold}
+          skipAnimation={skipIntroAnimation}
           videoId="tv-video"
         >
           {!isVideoLoading && !zoomed && (
@@ -496,55 +670,171 @@ export default function Home(): JSX.Element {
               transition={{ duration: 0.5 }}
               className="flex flex-col gap-2.5 sm:gap-6 md:gap-8"
               style={{
-                alignItems: isMobile ? 'flex-end' : 'flex-end',
-                width: isMobile ? 'auto' : 'auto',
+                alignItems: isOptionMenu ? 'center' : 'flex-end',
+                width: isOptionMenu ? '100%' : 'auto',
               }}
             >
-              <Link href="/game?mode=all" className={isMobile ? "block w-full" : "block"}>
-                <motion.div
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
-                  style={{
-                    ...menuButtonStyle,
-                    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
-                    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
-                    textAlign: isMobile ? 'right' : 'right',
-                  }}
-                >
-                  PLAY ALL
-                </motion.div>
-              </Link>
-              <Link href="/game?mode=post00s" className={isMobile ? "block w-full" : "block"}>
-                <motion.div
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
-                  style={{
-                    ...menuButtonStyle,
-                    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
-                    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
-                    textAlign: isMobile ? 'right' : 'right',
-                  }}
-                >
-                  PLAY POST 00s
-                </motion.div>
-              </Link>
-              <Link href="/stats" className={isMobile ? "block w-full" : "block"}>
-                <motion.div
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="text-white font-bold cursor-pointer select-none whitespace-nowrap"
-                  style={{
-                    ...menuButtonStyle,
-                    fontSize: isMobile ? 'clamp(0.85rem, 4.35vw, 1.25rem)' : 'clamp(1rem, 3vw, 2.5rem)',
-                    letterSpacing: isMobile ? '1px' : menuButtonStyle.letterSpacing,
-                    textAlign: isMobile ? 'right' : 'right',
-                  }}
-                >
-                  USER STATS
-                </motion.div>
-              </Link>
+              {categoryStep === 'root' && (
+                <>
+                  <Link href="/game?mode=all" className={isMobile ? "block w-full" : "block"}>
+                    <motion.div {...menuMotionProps}>PLAY ALL</motion.div>
+                  </Link>
+                  <motion.button
+                    type="button"
+                    onClick={handleSelectCategory}
+                    {...menuMotionProps}
+                  >
+                    SELECT CATEGORY
+                  </motion.button>
+                  <Link href="/stats" className={isMobile ? "block w-full" : "block"}>
+                    <motion.div {...menuMotionProps}>USER STATS</motion.div>
+                  </Link>
+                </>
+              )}
+
+              {categoryStep === 'category' && (
+                <>
+                  <motion.button
+                    type="button"
+                    onClick={() => setCategoryStep('decade')}
+                    {...menuMotionProps}
+                  >
+                    BASED ON DECADE
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={() => setCategoryStep('genre')}
+                    {...menuMotionProps}
+                  >
+                    BASED ON GENRE
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={() => setCategoryStep('root')}
+                    {...menuMotionProps}
+                  >
+                    BACK
+                  </motion.button>
+                </>
+              )}
+
+              {categoryStep === 'genre' && (
+                <div className="flex w-full max-w-full flex-col items-center gap-4 sm:gap-5">
+                  <p
+                    className="w-full text-center font-bold uppercase text-white/85 select-none"
+                    style={{
+                      ...optionMenuItemStyle,
+                      fontSize: isMobile ? 'clamp(0.58rem, 2.6vw, 0.78rem)' : 'clamp(0.62rem, 1.3vw, 0.95rem)',
+                    }}
+                  >
+                    SELECT MULTIPLE GENRES
+                  </p>
+                  <div className="grid w-full max-w-[min(100%,42rem)] grid-cols-2 place-items-start gap-x-10 gap-y-6 sm:gap-x-16 sm:gap-y-8">
+                    {filterOptions.genres.map((genre) => {
+                      const selected = selectedGenres.includes(genre);
+                      return (
+                        <motion.button
+                          key={genre}
+                          type="button"
+                          onClick={() => toggleGenre(genre)}
+                          {...optionMenuMotionProps}
+                          className={`${optionMenuMotionProps.className} flex min-w-[9rem] items-center gap-3 sm:min-w-[12rem] sm:gap-4`}
+                          style={{ ...optionMenuItemStyle, textAlign: 'left' }}
+                        >
+                          <span className={checkboxClass(selected)}>
+                            <span className={checkboxInnerClass(selected)} />
+                          </span>
+                          <span>{genre.toUpperCase()}</span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex w-full items-center justify-end gap-5 sm:gap-8">
+                    {genreStartDisabled ? (
+                      <motion.button
+                        type="button"
+                        disabled
+                        {...optionMenuMotionProps}
+                        className={`${optionMenuMotionProps.className} cursor-not-allowed opacity-40`}
+                      >
+                        START
+                      </motion.button>
+                    ) : (
+                      <Link href={buildCategoryHref('genre')} className="block min-w-0">
+                        <motion.div {...optionMenuMotionProps}>START</motion.div>
+                      </Link>
+                    )}
+
+                    <motion.button
+                      type="button"
+                      onClick={() => setCategoryStep('category')}
+                      {...optionMenuMotionProps}
+                    >
+                      BACK
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+
+              {categoryStep === 'decade' && (
+                <div className="flex w-full max-w-full flex-col items-center gap-4 sm:gap-5">
+                  <p
+                    className="w-full text-center font-bold uppercase text-white/85 select-none"
+                    style={{
+                      ...optionMenuItemStyle,
+                      fontSize: isMobile ? 'clamp(0.58rem, 2.6vw, 0.78rem)' : 'clamp(0.62rem, 1.3vw, 0.95rem)',
+                    }}
+                  >
+                    SELECT AT LEAST TWO DECADES
+                  </p>
+                  <div className="grid w-full max-w-[min(100%,40rem)] grid-cols-2 place-items-start gap-x-10 gap-y-6 sm:gap-x-16 sm:gap-y-8">
+                    {filterOptions.decades.map((decade) => {
+                      const selected = selectedDecades.includes(decade);
+                      return (
+                        <motion.button
+                          key={decade}
+                          type="button"
+                          onClick={() => toggleDecade(decade)}
+                          {...optionMenuMotionProps}
+                          className={`${optionMenuMotionProps.className} flex min-w-[8.5rem] items-center gap-3 sm:min-w-[10.5rem] sm:gap-4`}
+                          style={{ ...optionMenuItemStyle, textAlign: 'left' }}
+                        >
+                          <span className={checkboxClass(selected)}>
+                            <span className={checkboxInnerClass(selected)} />
+                          </span>
+                          <span>{decade}S</span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex w-full items-center justify-end gap-5 sm:gap-8">
+                    {decadeStartDisabled ? (
+                      <motion.button
+                        type="button"
+                        disabled
+                        {...optionMenuMotionProps}
+                        className={`${optionMenuMotionProps.className} cursor-not-allowed opacity-40`}
+                      >
+                        START
+                      </motion.button>
+                    ) : (
+                      <Link href={buildCategoryHref('decade')} className="block min-w-0">
+                        <motion.div {...optionMenuMotionProps}>START</motion.div>
+                      </Link>
+                    )}
+
+                    <motion.button
+                      type="button"
+                      onClick={() => setCategoryStep('category')}
+                      {...optionMenuMotionProps}
+                    >
+                      BACK
+                    </motion.button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </TVWithVideo>

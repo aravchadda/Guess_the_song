@@ -46,14 +46,14 @@ export default function Leaderboard({ refreshKey }: LeaderboardProps) {
   if (!token) {
     return (
       <div
-        className="relative overflow-hidden rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 p-3 [@media_(max-width:700px)_and_(orientation:portrait)]:rounded-md [@media_(max-width:700px)_and_(orientation:portrait)]:border [@media_(max-width:700px)_and_(orientation:portrait)]:p-1.5 text-center shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm"
+        className="relative overflow-hidden rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 p-3 [@media_(max-width:700px)_and_(orientation:portrait)]:rounded-md [@media_(max-width:700px)_and_(orientation:portrait)]:border [@media_(max-width:700px)_and_(orientation:portrait)]:p-1.5 text-center shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm pointer-events-auto"
         style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
       >
         <div className="absolute inset-0 pointer-events-none opacity-25 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.12),transparent_26%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
         <p className="relative text-[#d9dee8] text-[9px] sm:text-[10px] [@media_(max-width:700px)_and_(orientation:portrait)]:text-[6px] leading-5 [@media_(max-width:700px)_and_(orientation:portrait)]:leading-3">
           Sign in to save points and see the leaderboard.
         </p>
-        <div className="relative mt-2 [@media_(max-width:700px)_and_(orientation:portrait)]:mt-1 [@media_(max-width:700px)_and_(orientation:portrait)]:scale-75 flex justify-center">
+        <div className="relative z-10 mt-2 [@media_(max-width:700px)_and_(orientation:portrait)]:mt-1 [@media_(max-width:700px)_and_(orientation:portrait)]:scale-75 flex justify-center pointer-events-auto">
           <GoogleLogin
             onSuccess={(cred) => {
               setSignInError('');

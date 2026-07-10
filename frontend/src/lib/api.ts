@@ -72,6 +72,7 @@ export interface Song {
 
 export interface PlayResponse {
   playId: string;
+  scoreProfile?: 'all' | 'reduced';
   song: Song;
   availableLevels: number[];
   currentLevel: number;
@@ -128,17 +129,60 @@ export interface SearchResult {
 }
 
 /**
+ * Options returned by GET /api/songs/filters - what the "Play with Filters"
+ * picker should render, computed from what's actually in the DB.
+ */
+export interface FilterOptions {
+  genres: string[];
+  decades: number[];
+  minDecadesSelected?: number;
+  decadeExcludedFromMinimum?: number;
+  hindiToggle?: boolean;
+}
+
+/**
+ * Category selection sent to POST /api/songs/random when playing a category
+ * round instead of "Play All".
+ */
+export type GameFilters =
+  | { mode: 'genre'; genres: string[] }
+  | { mode: 'decade'; decades: number[] };
+
+/**
+ * Fetch the available decades/genres for the filter picker.
+ */
+export async function getFilterOptions(): Promise<FilterOptions> {
+  const response = await fetch(`${API_URL}/api/songs/filters`);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch filter options');
+  }
+
+  return response.json();
+}
+
+/**
  * Start a new round by picking a random song.
  *
  * Stateless on the backend now (no persisted play session) - `playId` in the
  * response is just the song's id, kept under that name so call sites below
  * don't need to change.
+ *
+ * Pass `filters` to switch the backend into a category mode. Omit it for the
+ * existing unrestricted "Play All" behavior.
  */
-export async function startPlay(mode: 'random' | 'decade', minYear?: number): Promise<PlayResponse> {
+export async function startPlay(mode: 'random' | 'decade', minYear?: number, filters?: GameFilters): Promise<PlayResponse> {
+  const body = filters
+    ? {
+        filterMode: filters.mode,
+        value: filters.mode === 'genre' ? filters.genres : filters.decades,
+      }
+    : { mode, minYear };
+
   const response = await fetchWithRetry(`${API_URL}/api/songs/random`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ mode, minYear }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

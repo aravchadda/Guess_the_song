@@ -1,16 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaPause, FaPlay } from 'react-icons/fa';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
-import type { Song, GuessResponse, SearchResult } from '@/lib/api';
+import type { Song, GuessResponse, SearchResult, GameFilters, PlayResponse } from '@/lib/api';
 import Carousel from '@/components/Carousel';
 import VideoPlayer from '@/components/VideoPlayer';
 import Leaderboard from '@/components/Leaderboard';
 import Spacebar from '@/components/Spacebar';
+import SignInPrompt from '@/components/SignInPrompt';
 
 // List of album cover filenames
 const albumCovers = [
@@ -81,10 +84,39 @@ const audioFiles = [
   "/audio/tame-impala.mp3",
 ];
 
+const GAME_SIGN_IN_PROMPT_KEY = 'game_sign_in_prompt_seen';
+
 function GamePageContent() {
   const searchParams = useSearchParams();
   const { token, user, isLoading: isAuthLoading, logout } = useAuth();
-  const gameMode = searchParams.get('mode') || 'all'; // 'all' or 'post00s'
+  const gameMode = searchParams.get('mode') || 'all'; // 'all', 'genre', or 'decade'
+  const routeCategoryFilter = useMemo<GameFilters | undefined>(() => {
+    if (gameMode === 'genre') {
+      const rawGenres = searchParams.get('genres') || searchParams.get('genre');
+      const genres = rawGenres
+        ? rawGenres.split(',').map((genre) => genre.trim()).filter(Boolean)
+        : [];
+      return genres.length > 0 ? { mode: 'genre', genres } : undefined;
+    }
+
+    if (gameMode === 'decade') {
+      const rawDecades = searchParams.get('decades') || searchParams.get('decade');
+      const decades = rawDecades
+        ? rawDecades
+            .split(',')
+            .map((decade) => Number(decade.trim()))
+            .filter((decade) => Number.isFinite(decade))
+        : [];
+      return decades.length > 0 ? { mode: 'decade', decades } : undefined;
+    }
+
+    return undefined;
+  }, [gameMode, searchParams]);
+  const routeCategoryKey = routeCategoryFilter
+    ? routeCategoryFilter.mode === 'genre'
+      ? `genre:${routeCategoryFilter.genres.join('|')}`
+      : `decade:${routeCategoryFilter.decades.join('|')}`
+    : null;
 
   // Fetch the user's existing point total on mount
   useEffect(() => {
@@ -109,6 +141,14 @@ function GamePageContent() {
   const [showViews, setShowViews] = useState(false);
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
+  // Pre-game mode selection ("Play All" vs "Play with Filters") - shown on
+  // the TV once cutToGameScreen fires, before a song is actually picked.
+  // The black-screen/year/views reveal sequence only starts once this
+  // resolves (see startRevealSequence), so its delicate timing is untouched.
+  const [gameStarted, setGameStarted] = useState(false);
+  const [filterSubmitting, setFilterSubmitting] = useState(false);
+  const [filterSubmitError, setFilterSubmitError] = useState<string | null>(null);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isPortraitMobile, setIsPortraitMobile] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
@@ -143,6 +183,10 @@ function GamePageContent() {
   // Game state
   const [playId, setPlayId] = useState<string | null>(null);
   const [song, setSong] = useState<Song | null>(null);
+  const [scoreProfile, setScoreProfile] = useState<'all' | 'reduced'>('all');
+  const levelPointLabels = scoreProfile === 'reduced'
+    ? { 1: '+8', 2: '+4', 3: '+1' }
+    : { 1: '+10', 2: '+5', 3: '+1' };
   const [currentLevel, setCurrentLevel] = useState<1 | 2 | 3>(1);
   // Which levels actually have audio on disk for the current song - some songs
   // are missing a level (e.g. a silent/trimmed stem), so don't assume 1/2/3 always exist.
@@ -167,6 +211,29 @@ function GamePageContent() {
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
+  const routeCategoryStartedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthLoading || token || !routeCategoryFilter || !showGameScreen) return;
+    setShowSignInPrompt(true);
+  }, [isAuthLoading, routeCategoryFilter, showGameScreen, token]);
+
+  useEffect(() => {
+    if (isAuthLoading || token || routeCategoryFilter || !showFullGameScreen || !song) return;
+    const hasSeenPrompt = localStorage.getItem(GAME_SIGN_IN_PROMPT_KEY) === 'true';
+    if (hasSeenPrompt) return;
+
+    const timer = setTimeout(() => {
+      setShowSignInPrompt(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isAuthLoading, routeCategoryFilter, showFullGameScreen, song, token]);
+
+  const closeOptionalSignInPrompt = useCallback(() => {
+    localStorage.setItem(GAME_SIGN_IN_PROMPT_KEY, 'true');
+    setShowSignInPrompt(false);
+  }, []);
 
   // Update document attribute when game screen is shown/hidden
   useEffect(() => {
@@ -200,16 +267,20 @@ function GamePageContent() {
     }
   }, [currentLevel, song, showGameScreen, isFinished]);
 
-  // Initialize game
-  const initializeGame = useCallback(async () => {
+  // Initialize game.
+  // `filters` switches the backend into filtered mode ("Play with Filters").
+  // `prefetched` lets a caller that already fetched the song (e.g. to
+  // validate filters before starting the reveal animation) skip a second
+  // network round-trip here.
+  const initializeGame = useCallback(async (filters?: GameFilters, prefetched?: PlayResponse) => {
     try {
       setIsLoading(true);
-      
+
       // Reset level to 1
       setCurrentLevel(1);
       setLastGuessedLevel(null);
       setReveal(null);
-      
+
       // Reset video loaded states to ensure videos reload properly
       setVideosLoaded({
         on: false,
@@ -217,11 +288,12 @@ function GamePageContent() {
         off: false,
         overlay: false,
       });
-      
-      // Start play with appropriate mode
-      const playResponse = await startPlay('random', gameMode === 'post00s' ? 2000 : undefined);
+
+      // Start play with appropriate mode (or reuse an already-fetched response)
+      const playResponse = prefetched ?? await startPlay('random', gameMode === 'post00s' ? 2000 : undefined, filters);
 
       setPlayId(playResponse.playId);
+      setScoreProfile(playResponse.scoreProfile || 'all');
       setSong(playResponse.song);
       setAvailableLevels(playResponse.availableLevels);
       const startingLevel = playResponse.currentLevel as 1 | 2 | 3;
@@ -378,6 +450,7 @@ function GamePageContent() {
     // Reset game state
     audioManager.current.clear();
     setPlayId(null);
+    setScoreProfile('all');
     setSong(null);
     setCurrentLevel(1);
     setIsPlaying(false);
@@ -389,10 +462,16 @@ function GamePageContent() {
     setSearchResults([]);
     setShowSuggestions(false);
     setLastGuessedLevel(null);
-    
+
+    // Reset pre-game selection so the next visit shows Play All / Filters again
+    setGameStarted(false);
+    setFilterSubmitting(false);
+    setFilterSubmitError(null);
+    routeCategoryStartedRef.current = null;
+
     // Stop video sequence
     stopVideoSequence();
-    
+
     // Reset video loaded states so videos reload properly on next game
     setVideosLoaded({
       on: false,
@@ -400,14 +479,14 @@ function GamePageContent() {
       off: false,
       overlay: false,
     });
-    
+
     // Reset carousel state
     setIsSpacebarHeld(false);
     speedMultiplierRef.current = 1;
     setSpeedMultiplier(1);
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
-    
+
     // Reset animation sequence states
     setShowBlackScreen(false);
     setShowYear(false);
@@ -419,16 +498,23 @@ function GamePageContent() {
     setShowGameScreen(false);
   };
 
-  // Function to immediately cut to game screen with animation sequence
+  // Function to immediately cut to the game screen. The selected route mode
+  // starts automatically once this screen is visible.
   const cutToGameScreen = useCallback(() => {
     if (showGameScreen) return;
 
-    // Start animation sequence
     setShowGameScreen(true);
     setCarouselOpacity(0);
+  }, [showGameScreen]);
+
+  // Kicks off the existing black-screen -> year -> views -> full game screen
+  // reveal sequence. Unchanged from the original cutToGameScreen body, just
+  // extracted so it can be deferred until after mode/filter selection.
+  const startRevealSequence = useCallback((filters?: GameFilters, prefetched?: PlayResponse) => {
+    setGameStarted(true);
     setShowBlackScreen(true);
-    initializeGame();
-    
+    initializeGame(filters, prefetched);
+
     // Sequence: black screen -> year -> views -> full game screen
     setTimeout(() => {
       setShowYear(true);
@@ -480,7 +566,30 @@ function GamePageContent() {
         setShowBlackScreen(false);
       }, 100);
     }, 2000);
-  }, [showGameScreen, initializeGame]);
+  }, [initializeGame]);
+
+  useEffect(() => {
+    if (!showGameScreen || gameStarted || routeCategoryFilter) return;
+    startRevealSequence();
+  }, [gameStarted, routeCategoryFilter, showGameScreen, startRevealSequence]);
+
+  useEffect(() => {
+    if (!showGameScreen || gameStarted || !routeCategoryFilter || !routeCategoryKey || filterSubmitting || !token) return;
+    if (routeCategoryStartedRef.current === routeCategoryKey) return;
+
+    routeCategoryStartedRef.current = routeCategoryKey;
+    setFilterSubmitError(null);
+    setFilterSubmitting(true);
+    startPlay('random', undefined, routeCategoryFilter)
+      .then((prefetched) => {
+        setFilterSubmitting(false);
+        startRevealSequence(routeCategoryFilter, prefetched);
+      })
+      .catch((error: any) => {
+        setFilterSubmitting(false);
+        setFilterSubmitError(error.message || 'Failed to start game with this category');
+      });
+  }, [filterSubmitting, gameStarted, routeCategoryFilter, routeCategoryKey, showGameScreen, startRevealSequence, token]);
 
   // Preload video with proper buffering
   const preloadVideo = useCallback((video: HTMLVideoElement, src: string): Promise<void> => {
@@ -766,10 +875,11 @@ function GamePageContent() {
     if (!playId || currentLevel === Math.max(...availableLevels) || isFinished || !song) return;
     
     try {
-      // Stop current playback
+      // Replace the current audio buffer without running the off/reset video
+      // sequence. Level switches should feel continuous: the TV stays in its
+      // current playing/running state while the next stem level loads.
+      audioManager.current.setOnEnded(null);
       audioManager.current.stop();
-      setIsPlaying(false);
-      stopVideoSequence();
       
       const response = await skipLevel(playId, currentLevel);
       // Use the level from backend response, or advance manually
@@ -803,7 +913,9 @@ function GamePageContent() {
         setIsPlaying(true);
         const levelNames = ['', 'drums', 'Instruments', 'vocals'];
         setMessage(`🎵 Playing ${levelNames[nextLevel]}...`);
-        startVideoSequence();
+        if (videoSequenceRef.current === 'idle' || videoSequenceRef.current === 'off') {
+          startVideoSequence();
+        }
       } catch (loadError) {
         console.error(`Error loading level ${nextLevel}:`, loadError);
         setMessage(`❌ Error loading audio. Tap play to retry.`);
@@ -894,6 +1006,7 @@ function GamePageContent() {
     // Reset game state
     audioManager.current.clear();
     setPlayId(null);
+    setScoreProfile('all');
     setSong(null);
     setCurrentLevel(1);
     setIsPlaying(false);
@@ -905,23 +1018,29 @@ function GamePageContent() {
     setSearchResults([]);
     setShowSuggestions(false);
     setLastGuessedLevel(null);
-    
+
+    // Reset pre-game selection so the next visit shows Play All / Filters again
+    setGameStarted(false);
+    setFilterSubmitting(false);
+    setFilterSubmitError(null);
+    routeCategoryStartedRef.current = null;
+
     // Stop video sequence
     stopVideoSequence();
-    
+
     // Reset animation sequence states
     setShowBlackScreen(false);
     setShowYear(false);
     setShowViews(false);
     setShowFullGameScreen(false);
-    
+
     // Reset carousel state
     setIsSpacebarHeld(false);
     speedMultiplierRef.current = 1;
     setSpeedMultiplier(1);
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
-    
+
     // Hide game screen first, then fade in carousel
     setShowGameScreen(false);
     // Small delay to allow game screen to start fading out
@@ -1502,17 +1621,41 @@ function GamePageContent() {
 
   return (
     <div className="h-[100dvh] min-h-[100dvh] w-full flex flex-col items-center justify-center overflow-hidden relative bg-black">
-      {!isAuthLoading && token && user && (
-        <div className="fixed top-4 right-4 sm:right-6 z-[70] flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2 text-white/80">
-            <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
-            <button
-              onClick={logout}
-              className="text-xs sm:text-sm underline hover:text-white transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
+      {showSignInPrompt && !token && (
+        <SignInPrompt
+          message={
+            routeCategoryFilter
+              ? 'Sign in to choose categories and save your score.'
+              : 'Sign in to save points and see the leaderboard.'
+          }
+          onClose={routeCategoryFilter ? undefined : closeOptionalSignInPrompt}
+        />
+      )}
+
+      <Link
+        href="/?menu=1"
+        onClick={() => {
+          audioManager.current.stop();
+          stopVideoSequence();
+        }}
+        className="fixed left-4 top-4 z-[75] rounded-md border border-white/70 bg-black/45 px-3 py-2 text-xs font-bold uppercase tracking-widest text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:bg-white hover:text-black sm:left-6 sm:top-6"
+      >
+        Back
+      </Link>
+
+      {!isAuthLoading && (
+        <div className="fixed top-4 right-4 sm:right-6 z-[70] flex items-center gap-2 text-white/80">
+          {token && user ? (
+            <>
+              <span className="text-xs sm:text-sm hidden sm:inline">{user.name}</span>
+              <button
+                onClick={logout}
+                className="text-xs sm:text-sm underline hover:text-white transition-colors"
+              >
+                Sign out
+              </button>
+            </>
+          ) : null}
         </div>
       )}
 
@@ -1631,19 +1774,23 @@ function GamePageContent() {
                   }}
                 >
                   {isPlaying ? (
-                    <span 
-                      className="ml-1"
+                    <FaPause
+                      aria-hidden="true"
+                      className="ml-0.5"
                       style={{
-                        fontSize: 'clamp(0.875rem, 3%, 1.125rem)',
+                        width: 'clamp(0.875rem, 3%, 1.125rem)',
+                        height: 'clamp(0.875rem, 3%, 1.125rem)',
                       }}
-                    >⏸</span>
+                    />
                   ) : (
-                    <span 
+                    <FaPlay
+                      aria-hidden="true"
                       className="ml-1"
                       style={{
-                        fontSize: 'clamp(0.875rem, 3%, 1.125rem)',
+                        width: 'clamp(0.875rem, 3%, 1.125rem)',
+                        height: 'clamp(0.875rem, 3%, 1.125rem)',
                       }}
-                    >▶</span>
+                    />
                   )}
                 </button>
               )}
@@ -1651,7 +1798,25 @@ function GamePageContent() {
           </div>
         )}
       </AnimatePresence>
-      
+
+      <AnimatePresence>
+        {showGameScreen && !gameStarted && routeCategoryFilter && (
+          <motion.div
+            className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto py-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="w-full max-w-lg rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 p-5 sm:p-8 text-center shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
+              <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-[#9aa3b2]">
+                {filterSubmitError || 'Starting...'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress Bar - Full width at bottom of screen */}
       {showGameScreen && isPlaying && (
         <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-700 z-30">
@@ -1857,14 +2022,14 @@ function GamePageContent() {
                 
               {/* Year - Top left corner */}
               {song && (
-                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
+                <div className="fixed top-16 sm:top-20 md:top-24 max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
                   <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.release_year}</p>
                 </div>
               )}
               
               {/* Views - Top right corner */}
               {song && (
-                <div className="fixed top-16 sm:top-20 md:top-8 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
+                <div className="fixed top-16 sm:top-20 md:top-24 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
                   <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.viewcount_formatted}</p>
                 </div>
               )}
@@ -1899,9 +2064,9 @@ function GamePageContent() {
                 {/* Stem indicators - plain text, not buttons */}
                 <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5">
                   {[
-                    { level: 1, name: 'Drums', points: '+10' },
-                    { level: 2, name: 'Instruments', points: '+5' },
-                    { level: 3, name: 'Vocals', points: '+1' }
+                    { level: 1, name: 'Drums', points: levelPointLabels[1] },
+                    { level: 2, name: 'Instruments', points: levelPointLabels[2] },
+                    { level: 3, name: 'Vocals', points: levelPointLabels[3] }
                   ].map(({ level, name, points }) => {
                     // Is this stem currently audible in the mix?
                     const isActive =
@@ -1949,7 +2114,7 @@ function GamePageContent() {
               </div>
 
               {/* Right side - Points + Leaderboard */}
-              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 max-[900px]:!right-2 top-1/2 transform -translate-y-1/2 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden flex flex-col items-stretch gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 w-36 sm:w-44 md:w-64 lg:w-72 max-[900px]:!w-40">
+              <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 max-[900px]:!right-2 top-1/2 transform -translate-y-1/2 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden flex flex-col items-stretch gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 w-36 sm:w-44 md:w-64 lg:w-72 max-[900px]:!w-40 pointer-events-auto">
                 {totalPoints !== null && (
                   <div className="text-right">
                     <p className="text-white text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-60 font-semibold">
@@ -1996,9 +2161,9 @@ function GamePageContent() {
                   </p>
                   <div className="grid grid-cols-3 gap-1">
                     {[
-                      { level: 1, name: 'Drums', points: '+10' },
-                      { level: 2, name: 'Instruments', points: '+5' },
-                      { level: 3, name: 'Vocals', points: '+1' }
+                      { level: 1, name: 'Drums', points: levelPointLabels[1] },
+                      { level: 2, name: 'Instruments', points: levelPointLabels[2] },
+                      { level: 3, name: 'Vocals', points: levelPointLabels[3] }
                     ].map(({ level, name, points }) => {
                       const isActive =
                         currentLevel === 1 && level === 1 ||

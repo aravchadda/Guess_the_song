@@ -41,20 +41,32 @@ export default function StatsPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
-        <p className="text-white/60 text-sm tracking-widest uppercase">Loading statistics...</p>
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#050506]">
+        <div
+          className="relative overflow-hidden border-2 border-[#6f7a8d] bg-[#111820]/90 px-8 py-7 text-center shadow-[0_14px_34px_rgba(0,0,0,0.55),inset_0_0_24px_rgba(255,255,255,0.035)]"
+          style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+        >
+          <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_5px]" />
+          <p className="relative text-[#d9dee8] text-[10px] sm:text-xs uppercase tracking-[0.16em] leading-6">
+            Loading stats...
+          </p>
+        </div>
       </main>
     );
   }
 
   if (error) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-8 bg-[#0E0E10]">
-        <div className="text-center">
-          <p className="text-white text-lg mb-4">{error}</p>
-          <Link href="/">
-            <button className="border border-white/40 text-white text-sm py-2 px-6 rounded hover:bg-white/10 transition">
-              Back to Home
+      <main className="min-h-screen flex items-center justify-center p-8 bg-[#050506]">
+        <div
+          className="relative max-w-md overflow-hidden border-2 border-[#6f7a8d] bg-[#111820]/90 px-8 py-7 text-center shadow-[0_14px_34px_rgba(0,0,0,0.55),inset_0_0_24px_rgba(255,255,255,0.035)]"
+          style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+        >
+          <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_5px]" />
+          <p className="relative mb-5 text-[#d9dee8] text-[10px] sm:text-xs leading-6">{error}</p>
+          <Link href="/?menu=1">
+            <button className="relative border-2 border-[#6f7a8d] px-5 py-3 text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-white transition hover:border-white hover:bg-white hover:text-[#0b0e0f]">
+              Back Home
             </button>
           </Link>
         </div>
@@ -95,75 +107,177 @@ export default function StatsPage() {
     { label: 'Failed', value: stats.distribution.failed },
   ];
 
+  const panelClass =
+    'relative overflow-hidden border-2 border-[#6f7a8d] bg-[#0b0e0f]/90 shadow-[0_14px_34px_rgba(0,0,0,0.55),inset_0_0_24px_rgba(255,255,255,0.035)]';
+  const scanlineClass =
+    'absolute inset-0 pointer-events-none opacity-25 bg-[radial-gradient(circle_at_26%_18%,rgba(255,255,255,0.12),transparent_28%),linear-gradient(rgba(255,255,255,0.065)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]';
+
   return (
-    <main className="min-h-screen p-8 bg-[#0E0E10]">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="mb-10">
-          <Link href="/">
-            <button className="mb-6 text-white/60 text-sm hover:text-white transition">
-              ← Back to Home
-            </button>
-          </Link>
-          <h1 className="text-3xl font-bold text-white mb-1">Your Statistics</h1>
-          <p className="text-white/50 text-sm">
-            {user ? user.name : 'Your game statistics'}
-          </p>
-        </div>
+    <main className="relative min-h-screen overflow-hidden bg-[#050506] px-4 py-20 sm:px-6 lg:px-8">
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_0%,rgba(120,20,20,0.22),transparent_32%),radial-gradient(circle_at_15%_80%,rgba(255,255,255,0.06),transparent_24%)]" />
+      <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[length:100%_6px]" />
 
-        {/* Primary stats - plain grid, no boxes */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-8 mb-12 pb-12 border-b border-white/10">
-          {primaryStats.map((stat) => (
-            <div key={stat.label}>
-              <p className="text-white text-3xl font-bold mb-1">{stat.value}</p>
-              <p className="text-white/50 text-xs uppercase tracking-widest">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Distribution chart */}
-        <div className="mb-12 pb-12 border-b border-white/10">
-          <h2 className="text-white/50 text-xs uppercase tracking-widest mb-6">
-            Distribution by Level
-          </h2>
-
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-              <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} />
-              <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{ background: '#0E0E10', border: '1px solid rgba(255,255,255,0.2)' }}
-                labelStyle={{ color: '#fff' }}
-                itemStyle={{ color: '#fff' }}
-              />
-              <Bar dataKey="value" name="Guesses" fill="#ffffff" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {distributionRows.map((row) => (
-              <div key={row.label}>
-                <p className="text-white text-xl font-bold">{row.value}</p>
-                <p className="text-white/50 text-xs">{row.label}</p>
-              </div>
-            ))}
+      <div className="relative mx-auto max-w-5xl">
+        <div
+          className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
+          style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+        >
+          <div>
+            <Link href="/?menu=1">
+              <button className="mb-5 text-[9px] uppercase tracking-[0.14em] text-[#9aa3b2] transition hover:text-white">
+                Back Home
+              </button>
+            </Link>
+            <p className="mb-3 text-[9px] uppercase tracking-[0.18em] text-[#9aa3b2]">
+              Replay Profile
+            </p>
+            <h1 className="text-xl leading-8 text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.8)] sm:text-3xl sm:leading-[3rem]">
+              User Stats
+            </h1>
+          </div>
+          <div className="text-left sm:text-right">
+            <p className="text-[9px] uppercase tracking-[0.14em] text-[#9aa3b2]">Player</p>
+            <p className="mt-2 max-w-[18rem] truncate text-[10px] leading-5 text-[#d9dee8] sm:text-xs">
+              {user ? user.name : 'Signed in user'}
+            </p>
           </div>
         </div>
 
-        {/* Summary */}
-        <div className="text-white/70 text-sm space-y-2">
-          <p>
-            Average guessed level of <strong className="text-white">{stats.averageLevel.toFixed(2)}</strong>
-            {stats.averageLevel < 1.5 ? ' — mostly on drums alone.' : stats.averageLevel < 2.5 ? ' — usually by the instruments.' : ' — often not until the full mix.'}
-          </p>
-          <p>
-            Guessed correctly on drums alone <strong className="text-white">{stats.distribution.level1}</strong> time(s).
-          </p>
-          <p>
-            Overall guess rate: <strong className="text-white">{guessRate}%</strong>
-          </p>
-        </div>
+        <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {primaryStats.map((stat, index) => (
+            <div key={stat.label} className={`${panelClass} p-5 sm:p-6`}>
+              <div className={scanlineClass} />
+              <div className="relative">
+                <p
+                  className="mb-4 text-[8px] uppercase tracking-[0.16em] text-[#9aa3b2]"
+                  style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+                >
+                  {stat.label}
+                </p>
+                <p
+                  className={`font-black leading-none text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.85)] ${
+                    index === 0 ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'
+                  }`}
+                >
+                  {stat.value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.85fr)]">
+          <div className={`${panelClass} p-5 sm:p-7`}>
+            <div className={scanlineClass} />
+            <div className="relative">
+              <div
+                className="mb-6 flex items-center justify-between gap-4 border-b border-white/15 pb-4"
+                style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+              >
+                <h2 className="text-[10px] uppercase tracking-[0.16em] text-[#f4f4f4] sm:text-xs">
+                  Guess Breakdown
+                </h2>
+                <p className="text-[8px] uppercase tracking-[0.12em] text-[#9aa3b2]">
+                  By Level
+                </p>
+              </div>
+
+              <div className="h-[260px] sm:h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 8, right: 8, left: -18, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.12)" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      stroke="rgba(255,255,255,0.45)"
+                      tick={{ fill: 'rgba(255,255,255,0.62)', fontSize: 10, fontFamily: 'var(--font-press-start-2p), monospace' }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+                    />
+                    <YAxis
+                      stroke="rgba(255,255,255,0.45)"
+                      tick={{ fill: 'rgba(255,255,255,0.62)', fontSize: 10, fontFamily: 'var(--font-press-start-2p), monospace' }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'rgba(255,255,255,0.2)' }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.06)' }}
+                      contentStyle={{
+                        background: '#111820',
+                        border: '2px solid #6f7a8d',
+                        borderRadius: 0,
+                        color: '#fff',
+                        fontFamily: 'var(--font-press-start-2p), monospace',
+                        fontSize: '10px',
+                      }}
+                      labelStyle={{ color: '#fff' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                    <Bar dataKey="value" name="Guesses" fill="#f4f4f4" radius={[0, 0, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <aside className="flex flex-col gap-4">
+            <div className={`${panelClass} p-5`}>
+              <div className={scanlineClass} />
+              <div className="relative">
+                <p
+                  className="mb-4 border-b border-white/15 pb-3 text-[10px] uppercase tracking-[0.16em] text-[#f4f4f4]"
+                  style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+                >
+                  Levels
+                </p>
+                <div className="flex flex-col gap-3">
+                  {distributionRows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-white/15 bg-[#151a1f]/85 px-3 py-3"
+                    >
+                      <p className="min-w-0 text-xs text-[#d9dee8] sm:text-sm">{row.label}</p>
+                      <p
+                        className="text-sm text-white"
+                        style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+                      >
+                        {row.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={`${panelClass} p-5`}>
+              <div className={scanlineClass} />
+              <div className="relative text-sm leading-7 text-[#c7ccd6]">
+                <p
+                  className="mb-4 border-b border-white/15 pb-3 text-[10px] uppercase tracking-[0.16em] text-[#f4f4f4]"
+                  style={{ fontFamily: 'var(--font-press-start-2p), monospace' }}
+                >
+                  Readout
+                </p>
+                <p>
+                  Average guessed level: <strong className="text-white">{stats.averageLevel.toFixed(2)}</strong>.
+                </p>
+                <p className="mt-3">
+                  {stats.averageLevel < 1.5
+                    ? 'Mostly solved from drums alone.'
+                    : stats.averageLevel < 2.5
+                      ? 'Usually solved after instruments arrive.'
+                      : 'Often solved near the full mix.'}
+                </p>
+                <p className="mt-3">
+                  Drums-only clears: <strong className="text-white">{stats.distribution.level1}</strong>.
+                </p>
+                <p className="mt-3">
+                  Overall guess rate: <strong className="text-white">{guessRate}%</strong>.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </section>
       </div>
     </main>
   );
