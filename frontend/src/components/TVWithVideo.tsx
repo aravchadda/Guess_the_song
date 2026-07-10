@@ -6,11 +6,18 @@ import type { ReactNode } from "react";
 interface TVWithVideoProps {
   videoSrc: string;
   hold: boolean;
+  skipAnimation?: boolean;
   videoId?: string;
   children?: ReactNode;
 }
 
-export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video", children }: TVWithVideoProps) {
+export default function TVWithVideo({ videoSrc, hold, skipAnimation = false, videoId = "tv-video", children }: TVWithVideoProps) {
+  const tvScale = hold ? 1.5 : 1;
+  const contentScale = hold ? 0.6667 : 1;
+  const scaleTransition = skipAnimation
+    ? { duration: 0 }
+    : { duration: 3, ease: "easeInOut" as const, delay: hold ? 0.3 : 0 };
+
   return (
     <motion.div
       className="relative"
@@ -18,10 +25,9 @@ export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video", chil
         width: 'clamp(200px, max(50vw, min(78vw, 44vh)), 800px)',
         maxWidth: '800px',
       }}
-      animate={{
-        scale: hold ? 1.5 : 1,
-      }}
-      transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
+      initial={{ scale: tvScale }}
+      animate={{ scale: tvScale }}
+      transition={scaleTransition}
     >
       {/* Video - positioned behind the frame, clipped to appear inside TV screen */}
       <div
@@ -61,10 +67,9 @@ export default function TVWithVideo({ videoSrc, hold, videoId = "tv-video", chil
             bottom: '10%',
             transformOrigin: 'center',
           }}
-          animate={{
-            scale: hold ? 0.6667 : 1,
-          }}
-          transition={{ duration: 3, ease: "easeInOut", delay: hold ? 0.3 : 0 }}
+          initial={{ scale: contentScale }}
+          animate={{ scale: contentScale }}
+          transition={scaleTransition}
         >
           {children}
         </motion.div>

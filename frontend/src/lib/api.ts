@@ -72,6 +72,7 @@ export interface Song {
 
 export interface PlayResponse {
   playId: string;
+  scoreProfile?: 'all' | 'reduced';
   song: Song;
   availableLevels: number[];
   currentLevel: number;
@@ -134,22 +135,18 @@ export interface SearchResult {
 export interface FilterOptions {
   genres: string[];
   decades: number[];
-  minDecadesSelected: number;
-  decadeExcludedFromMinimum: number;
-  hindiToggle: boolean;
+  minDecadesSelected?: number;
+  decadeExcludedFromMinimum?: number;
+  hindiToggle?: boolean;
 }
 
 /**
- * Filter selection sent to POST /api/songs/random when playing a filtered
- * round instead of "Play All". `decades` must include at least
- * `minDecadesSelected` decades not counting `decadeExcludedFromMinimum`
- * (enforced client-side, and re-validated by the backend).
+ * Category selection sent to POST /api/songs/random when playing a category
+ * round instead of "Play All".
  */
-export interface GameFilters {
-  decades: number[];
-  genres?: string[];
-  includeHindi?: boolean;
-}
+export type GameFilters =
+  | { mode: 'genre'; genres: string[] }
+  | { mode: 'decade'; decades: number[] };
 
 /**
  * Fetch the available decades/genres for the filter picker.
@@ -171,13 +168,15 @@ export async function getFilterOptions(): Promise<FilterOptions> {
  * response is just the song's id, kept under that name so call sites below
  * don't need to change.
  *
- * Pass `filters` to switch the backend into filtered mode (`mode`/`minYear`
- * are ignored server-side in that case). Omit it for the existing
- * unrestricted "Play All" behavior.
+ * Pass `filters` to switch the backend into a category mode. Omit it for the
+ * existing unrestricted "Play All" behavior.
  */
 export async function startPlay(mode: 'random' | 'decade', minYear?: number, filters?: GameFilters): Promise<PlayResponse> {
   const body = filters
-    ? { filtered: true, decades: filters.decades, genres: filters.genres, includeHindi: filters.includeHindi }
+    ? {
+        filterMode: filters.mode,
+        value: filters.mode === 'genre' ? filters.genres : filters.decades,
+      }
     : { mode, minYear };
 
   const response = await fetchWithRetry(`${API_URL}/api/songs/random`, {

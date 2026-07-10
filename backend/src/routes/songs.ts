@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import Song, { GENRES, Genre } from '../models/Song';
+import Song, { GENRES } from '../models/Song';
 import User from '../models/User';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { formatViewCount } from '../utils/viewCountFormatter';
@@ -7,20 +7,29 @@ import { optionalAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
 
-// The tickable genre checkboxes in the filter UI - every genre except Hindi,
-// which is its own separate include/exclude toggle (a song's genre is still
-// literally "Hindi" in the DB, it's just not offered as a checkbox alongside
-// Pop/Rock/Hip-Hop/R&B).
-const SELECTABLE_GENRES = GENRES.filter((g) => g !== 'Hindi') as Exclude<Genre, 'Hindi'>[];
-
-// Decades don't count toward the "select at least 2" minimum when filtering
-// - the 70s stratum is small enough that requiring it not count keeps the
-// selected pool from being too thin.
+// Legacy combined-filter constants kept so old clients still get the same
+// validation behavior if they send `filtered: true`.
+const SELECTABLE_GENRES = GENRES.filter((g) => g !== 'Hindi');
+const CATEGORY_GENRE_ORDER = ['Hindi', 'Hip-Hop', 'Pop', 'R&B', 'Rock'] as const;
 const DECADE_MIN_EXCLUDED = 1970;
 const MIN_DECADES_SELECTED = 2;
 
 // Points awarded for a correct guess, by the level it was guessed on
 const LEVEL_POINTS: Record<number, number> = { 1: 10, 2: 5, 3: 1 };
+const REDUCED_LEVEL_POINTS: Record<number, number> = { 1: 8, 2: 4, 3: 1 };
+type ScoreProfile = 'all' | 'reduced';
+
+function makePlayId(songId: unknown, scoreProfile: ScoreProfile): string {
+  return `${songId}:${scoreProfile}`;
+}
+
+function parsePlayId(rawId: string): { songId: string; scoreProfile: ScoreProfile } {
+  const [songId, rawScoreProfile] = rawId.split(':');
+  return {
+    songId,
+    scoreProfile: rawScoreProfile === 'reduced' ? 'reduced' : 'all'
+  };
+}
 
 // Which per-level successfulGuesses counter a level corresponds to.
 // level 1 = drums only (hardest), level 2 = vocals removed, level 3 = full mix (easiest).
@@ -72,15 +81,16 @@ router.get('/search', async (req: Request, res: Response) => {
 
 /**
  * GET /api/songs/filters
- * What the filter UI (decades on the left, genres on the right) should
- * render, computed from what's actually in the DB rather than hardcoded on
- * the frontend.
+ * What the category UI should render, computed from what's actually in the DB
+ * rather than hardcoded on the frontend.
  */
 router.get('/filters', async (_req: Request, res: Response) => {
   try {
     const decades = await Song.distinct('decade');
+    const genres = await Song.distinct('genre');
+    const genreSet = new Set(genres);
     res.json({
-      genres: SELECTABLE_GENRES,
+      genres: CATEGORY_GENRE_ORDER.filter((genre) => genreSet.has(genre)),
       decades: decades.sort((a: number, b: number) => a - b),
       minDecadesSelected: MIN_DECADES_SELECTED,
       decadeExcludedFromMinimum: DECADE_MIN_EXCLUDED,
@@ -102,22 +112,61 @@ router.get('/filters', async (_req: Request, res: Response) => {
  * song in the current dataset has all three levels on disk, so there's no
  * need to retry for missing audio the way the old Play-based selection did.
  *
- * Two ways to call this:
+ * Three ways to call this:
  * 1. "Play All" - omit `filtered` (or send it false). Legacy `mode`/`value`/
  *    `minYear` fields still work exactly as before. Pool is unrestricted by
  *    genre, including Hindi.
- * 2. "Play with Filters" - send `filtered: true` plus `decades` (>= 2,
+ * 2. Category mode - signed-in users only. Send `filterMode: "genre"` with
+ *    `value: ["Pop", "Rock"]` (or any genres in GENRES), or `filterMode:
+ *    "decade"` with `value: [1990, 2000]`. Decade category mode requires at
+ *    least two selected decades.
+ * 3. Legacy "Play with Filters" - send `filtered: true` plus `decades` (>= 2,
  *    not counting 1970), optionally `genres` (subset of Pop/Rock/Hip-Hop/R&B;
  *    omitted/empty = all 4) and `includeHindi` (default false, adds Hindi
  *    songs into the pool on top of whatever genres are selected).
  */
 router.post('/random', async (req: AuthedRequest, res: Response) => {
   try {
-    const { mode = 'random', value, minYear, filtered, decades, genres, includeHindi } = req.body;
+    const { mode = 'random', value, minYear, filtered, filterMode, decades, genres, includeHindi } = req.body;
 
     let query: any = {};
+    let scoreProfile: ScoreProfile = 'all';
 
-    if (filtered) {
+    if (filterMode) {
+      scoreProfile = 'reduced';
+      if (!req.userId) {
+        return res.status(401).json({ error: 'Sign in to play category modes' });
+      }
+
+      if (!['genre', 'decade'].includes(filterMode)) {
+        return res.status(400).json({ error: 'Invalid filterMode. Must be "genre" or "decade"' });
+      }
+
+      if (filterMode === 'genre') {
+        const genreValues = (Array.isArray(value) ? value : [value]).filter(Boolean);
+        if (genreValues.length === 0 || genreValues.some((genre: any) => typeof genre !== 'string')) {
+          return res.status(400).json({ error: 'Genre mode requires at least one genre in "value"' });
+        }
+        const invalidGenre = genreValues.find((genre: string) => !(GENRES as readonly string[]).includes(genre));
+        if (invalidGenre) {
+          return res.status(400).json({ error: `Invalid genre "${invalidGenre}". Must be one of: ${GENRES.join(', ')}` });
+        }
+        query.genre = { $in: genreValues };
+      }
+
+      if (filterMode === 'decade') {
+        const decadeValues = (Array.isArray(value) ? value : [value]).filter((decade: any) => decade !== undefined && decade !== null && decade !== '');
+        const parsedDecades: number[] = decadeValues.map((decade: any) => parseInt(decade, 10));
+        if (parsedDecades.length < 2) {
+          return res.status(400).json({ error: 'Select at least 2 decades' });
+        }
+        if (parsedDecades.some((decade) => isNaN(decade))) {
+          return res.status(400).json({ error: 'Decade mode requires numeric values (e.g., 1990)' });
+        }
+        query.decade = { $in: parsedDecades };
+      }
+    } else if (filtered) {
+      scoreProfile = 'reduced';
       if (!Array.isArray(decades)) {
         return res.status(400).json({ error: '"decades" must be an array when filtered is true' });
       }
@@ -148,6 +197,7 @@ router.post('/random', async (req: AuthedRequest, res: Response) => {
       }
 
       if (mode === 'decade') {
+        scoreProfile = 'reduced';
         if (!value) {
           return res.status(400).json({ error: 'Decade mode requires a "value" parameter' });
         }
@@ -159,6 +209,7 @@ router.post('/random', async (req: AuthedRequest, res: Response) => {
       }
 
       if (minYear !== undefined && minYear !== null) {
+        scoreProfile = 'reduced';
         const year = parseInt(minYear);
         if (isNaN(year)) {
           return res.status(400).json({ error: 'minYear must be a number' });
@@ -179,7 +230,8 @@ router.post('/random', async (req: AuthedRequest, res: Response) => {
     }
 
     res.json({
-      playId: song._id,
+      playId: makePlayId(song._id, scoreProfile),
+      scoreProfile,
       availableLevels: [1, 2, 3],
       currentLevel: 1,
       song: {
@@ -209,6 +261,7 @@ router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { guess, level } = req.body;
+    const { songId, scoreProfile } = parsePlayId(id);
 
     if (!guess || typeof guess !== 'string') {
       return res.status(400).json({ error: 'Guess is required and must be a string' });
@@ -219,7 +272,7 @@ router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
       return res.status(400).json({ error: 'Level must be between 1 and 3' });
     }
 
-    const song = await Song.findById(id);
+    const song = await Song.findById(songId);
     if (!song) {
       return res.status(404).json({ error: 'Song not found' });
     }
@@ -228,7 +281,8 @@ router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
     const isCorrect = fuzzyMatch(guess, song.name, song.artists, threshold);
 
     if (isCorrect) {
-      const pointsAwarded = LEVEL_POINTS[guessLevel] || 0;
+      const pointsTable = scoreProfile === 'reduced' ? REDUCED_LEVEL_POINTS : LEVEL_POINTS;
+      const pointsAwarded = pointsTable[guessLevel] || 0;
       const counter = LEVEL_COUNTER[guessLevel];
 
       const user = req.userId

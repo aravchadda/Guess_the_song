@@ -29,8 +29,8 @@ export default function Header() {
     return () => observer.disconnect();
   }, []);
 
-  // Hide header when game screen is active (but show during carousel)
-  if (pathname?.startsWith('/game') && isGameScreenActive) {
+  // The game route owns its own navigation controls.
+  if (pathname?.startsWith('/game')) {
     return null;
   }
 

@@ -8,17 +8,26 @@ import FilterPicker from './FilterPicker';
 interface PreGameScreenProps {
   onPlayAll: () => void;
   onSubmitFilters: (filters: GameFilters) => void;
+  canSelectCategories: boolean;
+  onRequireCategorySignIn: () => void;
   isSubmitting: boolean;
   submitError: string | null;
 }
 
 /**
  * Shown on the TV before a song is picked - lets the player choose between
- * an unrestricted "Play All" round or "Play with Filters" (decades/genres/
- * Hindi toggle). Only once one of these resolves does the caller start the
- * black-screen/year/views reveal sequence.
+ * an unrestricted "Play All" round or a category round. Only once one of
+ * these resolves does the caller start the black-screen/year/views reveal
+ * sequence.
  */
-export default function PreGameScreen({ onPlayAll, onSubmitFilters, isSubmitting, submitError }: PreGameScreenProps) {
+export default function PreGameScreen({
+  onPlayAll,
+  onSubmitFilters,
+  canSelectCategories,
+  onRequireCategorySignIn,
+  isSubmitting,
+  submitError,
+}: PreGameScreenProps) {
   const [step, setStep] = useState<'choice' | 'filters'>('choice');
 
   return (
@@ -46,10 +55,16 @@ export default function PreGameScreen({ onPlayAll, onSubmitFilters, isSubmitting
               </button>
               <button
                 type="button"
-                onClick={() => setStep('filters')}
+                onClick={() => {
+                  if (!canSelectCategories) {
+                    onRequireCategorySignIn();
+                    return;
+                  }
+                  setStep('filters');
+                }}
                 className="w-full rounded-md border-2 border-[#6f7a8d] bg-transparent py-3 text-sm sm:text-base font-bold uppercase tracking-widest text-white transition hover:border-white"
               >
-                Play with Filters
+                Select Category
               </button>
             </div>
           </motion.div>
