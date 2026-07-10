@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,7 +28,7 @@ const fallbackFilterOptions: FilterOptions = {
   decades: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020],
 };
 
-export default function Home(): JSX.Element {
+function HomeContent(): JSX.Element {
   const searchParams = useSearchParams();
   const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
   const [signInError, setSignInError] = useState("");
@@ -906,5 +906,19 @@ export default function Home(): JSX.Element {
         </motion.div>
       )}
     </main>
+  );
+}
+
+export default function Home(): JSX.Element {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative h-[100dvh] min-h-[100dvh] flex items-center justify-center bg-[#0E0E10] overflow-hidden">
+          <p className="text-white/60 text-sm uppercase tracking-widest">Loading...</p>
+        </main>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
