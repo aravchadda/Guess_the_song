@@ -2022,14 +2022,14 @@ function GamePageContent() {
                 
               {/* Year - Top left corner */}
               {song && (
-                <div className="fixed top-16 sm:top-20 md:top-24 max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
+                <div className="fixed top-16 sm:top-16 md:top-16  max-[900px]:!top-14 left-3 sm:left-4 md:left-8 max-[900px]:!left-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
                   <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.release_year}</p>
                 </div>
               )}
               
               {/* Views - Top right corner */}
               {song && (
-                <div className="fixed top-16 sm:top-20 md:top-24 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
+                <div className="fixed top-16 sm:top-16 md:top-16 max-[900px]:!top-14 right-3 sm:right-4 md:right-8 max-[900px]:!right-3 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden text-white z-10">
                   <p className="text-base sm:text-xl md:text-3xl lg:text-4xl max-[900px]:!text-lg font-bold">{song.viewcount_formatted}</p>
                 </div>
               )}
