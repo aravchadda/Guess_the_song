@@ -16,6 +16,11 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: 'Guess The Song',
   description: 'A fun music guessing game with progressive audio reveals',
+  icons: {
+    icon: '/replays-logo.png',
+    shortcut: '/replays-logo.png',
+    apple: '/replays-logo.png',
+  },
 }
 
 export default function RootLayout({
@@ -37,4 +42,3 @@ export default function RootLayout({
     </html>
   )
 }
-

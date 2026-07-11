@@ -41,6 +41,7 @@ export default function TVWithVideo({ videoSrc, hold, skipAnimation = false, vid
           src={videoSrc}
           loop
           muted
+          autoPlay
           playsInline
           preload="auto"
           className="w-full h-full object-cover"
