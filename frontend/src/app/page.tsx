@@ -814,7 +814,7 @@ function HomeContent(): JSX.Element {
                           {...optionMenuMotionProps}
                           className={`${optionMenuMotionProps.className} flex items-center gap-3 sm:gap-4 ${
                             isEarlyDecades
-                              ? 'col-span-2 min-w-[18rem] justify-self-center'
+                              ? 'col-span-2 min-w-[8.5rem] justify-self-start sm:min-w-[10.5rem]'
                               : 'min-w-[8.5rem] sm:min-w-[10.5rem]'
                           }`}
                           style={{ ...optionMenuItemStyle, textAlign: 'left' }}
