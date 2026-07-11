@@ -214,6 +214,24 @@ export async function submitGuess(playId: string, guess: string, level?: number)
 }
 
 /**
+ * Reveal the song without awarding points.
+ */
+export async function revealSong(playId: string): Promise<GuessResponse> {
+  const response = await fetch(`${API_URL}/api/songs/${playId}/reveal`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+
+  if (!response.ok) {
+    notifyIfAuthExpired(response);
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to reveal song');
+  }
+
+  return response.json();
+}
+
+/**
  * Skip to next level. Fully deterministic (level+1, capped at 3) now that
  * every song has all three levels, so the current level has to be passed in
  * since the backend no longer keeps any session state to read it from.

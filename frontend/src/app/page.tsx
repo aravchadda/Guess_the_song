@@ -28,6 +28,8 @@ const fallbackFilterOptions: FilterOptions = {
   decades: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020],
 };
 
+const COMBINED_EARLY_DECADE_CUTOFF = 1970;
+
 function HomeContent(): JSX.Element {
   const searchParams = useSearchParams();
   const { token, user, isLoading: isAuthLoading, loginWithCredential, logout } = useAuth();
@@ -517,12 +519,24 @@ function HomeContent(): JSX.Element {
     );
   };
 
-  const toggleDecade = (decade: number) => {
-    setSelectedDecades((current) =>
-      current.includes(decade)
-        ? current.filter((selected) => selected !== decade)
-        : [...current, decade]
-    );
+  const earlyDecades = filterOptions.decades.filter((decade) => decade <= COMBINED_EARLY_DECADE_CUTOFF);
+  const decadeOptions = [
+    ...(earlyDecades.length > 0
+      ? [{ key: 'early-decades', label: '70S & BEFORE', decades: earlyDecades }]
+      : []),
+    ...filterOptions.decades
+      .filter((decade) => decade > COMBINED_EARLY_DECADE_CUTOFF)
+      .map((decade) => ({ key: String(decade), label: `${decade}S`, decades: [decade] })),
+  ];
+
+  const toggleDecadeOption = (decades: number[]) => {
+    setSelectedDecades((current) => {
+      const allSelected = decades.every((decade) => current.includes(decade));
+      if (allSelected) {
+        return current.filter((selected) => !decades.includes(selected));
+      }
+      return Array.from(new Set([...current, ...decades])).sort((a, b) => a - b);
+    });
   };
 
   const buildCategoryHref = (mode: 'genre' | 'decade') => {
@@ -789,21 +803,26 @@ function HomeContent(): JSX.Element {
                     SELECT AT LEAST TWO DECADES
                   </p>
                   <div className="grid w-full max-w-[min(100%,40rem)] grid-cols-2 place-items-start gap-x-10 gap-y-6 sm:gap-x-16 sm:gap-y-8">
-                    {filterOptions.decades.map((decade) => {
-                      const selected = selectedDecades.includes(decade);
+                    {decadeOptions.map((option) => {
+                      const selected = option.decades.every((decade) => selectedDecades.includes(decade));
+                      const isEarlyDecades = option.key === 'early-decades';
                       return (
                         <motion.button
-                          key={decade}
+                          key={option.key}
                           type="button"
-                          onClick={() => toggleDecade(decade)}
+                          onClick={() => toggleDecadeOption(option.decades)}
                           {...optionMenuMotionProps}
-                          className={`${optionMenuMotionProps.className} flex min-w-[8.5rem] items-center gap-3 sm:min-w-[10.5rem] sm:gap-4`}
+                          className={`${optionMenuMotionProps.className} flex items-center gap-3 sm:gap-4 ${
+                            isEarlyDecades
+                              ? 'col-span-2 min-w-[18rem] justify-self-center'
+                              : 'min-w-[8.5rem] sm:min-w-[10.5rem]'
+                          }`}
                           style={{ ...optionMenuItemStyle, textAlign: 'left' }}
                         >
                           <span className={checkboxClass(selected)}>
                             <span className={checkboxInnerClass(selected)} />
                           </span>
-                          <span>{decade}S</span>
+                          <span>{option.label}</span>
                         </motion.button>
                       );
                     })}

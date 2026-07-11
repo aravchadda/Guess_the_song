@@ -343,6 +343,44 @@ router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
 });
 
 /**
+ * POST /api/songs/:id/reveal
+ * Reveal the current song without awarding points.
+ */
+router.post('/:id/reveal', async (req: AuthedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { songId } = parsePlayId(id);
+
+    const song = await Song.findById(songId);
+    if (!song) {
+      return res.status(404).json({ error: 'Song not found' });
+    }
+
+    const user = req.userId
+      ? await User.findByIdAndUpdate(
+          req.userId,
+          { $inc: { songsPlayed: 1, failedGuesses: 1 } },
+          { new: true }
+        )
+      : null;
+
+    res.json({
+      correct: false,
+      pointsAwarded: 0,
+      totalPoints: user?.totalPoints,
+      reveal: {
+        name: song.name,
+        artists: song.artists,
+        youtube_link: song.youtube_link
+      }
+    });
+  } catch (error) {
+    console.error('Error revealing song:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * POST /api/songs/:id/skip
  * Advance to the next level. Fully stateless/deterministic now that every
  * song has all three levels on disk -- just level+1, capped at 3.

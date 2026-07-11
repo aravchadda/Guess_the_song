@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaPause, FaPlay } from 'react-icons/fa';
 import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
-import { startPlay, submitGuess, skipLevel, searchSongs, getMyStats, API_URL } from '@/lib/api';
+import { startPlay, submitGuess, skipLevel, revealSong, searchSongs, getMyStats, API_URL } from '@/lib/api';
 import type { Song, GuessResponse, SearchResult, GameFilters, PlayResponse } from '@/lib/api';
 import Carousel from '@/components/Carousel';
 import VideoPlayer from '@/components/VideoPlayer';
@@ -149,6 +149,7 @@ function GamePageContent() {
   const [filterSubmitting, setFilterSubmitting] = useState(false);
   const [filterSubmitError, setFilterSubmitError] = useState<string | null>(null);
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  const [isRevealingSong, setIsRevealingSong] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isPortraitMobile, setIsPortraitMobile] = useState(false);
   const spacebarHoldStartTimeRef = useRef<number | null>(null);
@@ -208,6 +209,8 @@ function GamePageContent() {
   const [totalPoints, setTotalPoints] = useState<number | null>(null);
   const [lastPointsAwarded, setLastPointsAwarded] = useState<number | null>(null);
   const [leaderboardRefreshKey, setLeaderboardRefreshKey] = useState(0);
+  const lastAvailableLevel = Math.max(...availableLevels);
+  const canRevealSong = Boolean(playId && song && !isFinished && currentLevel === lastAvailableLevel);
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
@@ -467,6 +470,7 @@ function GamePageContent() {
     setGameStarted(false);
     setFilterSubmitting(false);
     setFilterSubmitError(null);
+    setIsRevealingSong(false);
     routeCategoryStartedRef.current = null;
 
     // Stop video sequence
@@ -871,6 +875,32 @@ function GamePageContent() {
     }
   }, [videosLoaded, preloadVideo]);
 
+  const handleRevealSong = useCallback(async () => {
+    if (!playId || !song || isFinished || currentLevel !== lastAvailableLevel || isRevealingSong) return;
+
+    try {
+      setIsRevealingSong(true);
+      const response = await revealSong(playId);
+
+      setIsCorrect(false);
+      setIsFinished(true);
+      setReveal(response.reveal || null);
+      setLastPointsAwarded(null);
+      if (typeof response.totalPoints === 'number') setTotalPoints(response.totalPoints);
+      setLeaderboardRefreshKey((key) => key + 1);
+      audioManager.current.stop();
+      setIsPlaying(false);
+      stopVideoSequence();
+      setMessage('');
+      setGuess('');
+      setShowSuggestions(false);
+    } catch (error: any) {
+      setMessage(`❌ ${error.message || 'Failed to reveal song'}`);
+    } finally {
+      setIsRevealingSong(false);
+    }
+  }, [currentLevel, isFinished, isRevealingSong, lastAvailableLevel, playId, song, stopVideoSequence]);
+
   const handleSkip = useCallback(async () => {
     if (!playId || currentLevel === Math.max(...availableLevels) || isFinished || !song) return;
     
@@ -1023,6 +1053,7 @@ function GamePageContent() {
     setGameStarted(false);
     setFilterSubmitting(false);
     setFilterSubmitError(null);
+    setIsRevealingSong(false);
     routeCategoryStartedRef.current = null;
 
     // Stop video sequence
@@ -2111,6 +2142,20 @@ function GamePageContent() {
                     </div>
                   );
                 })()}
+
+                {canRevealSong && (
+                  <div className="flex flex-col items-start gap-1">
+                    <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px]">Still stuck?</p>
+                    <button
+                      type="button"
+                      onClick={handleRevealSong}
+                      disabled={isRevealingSong}
+                      className="px-2 py-1 md:px-3 md:py-1.5 max-[900px]:!px-2 max-[900px]:!py-1 rounded-lg font-semibold text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px] border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 disabled:cursor-not-allowed disabled:opacity-40 whitespace-nowrap pointer-events-auto"
+                    >
+                      {isRevealingSong ? 'Revealing...' : 'Reveal Song'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Right side - Points + Leaderboard */}
@@ -2212,6 +2257,22 @@ function GamePageContent() {
                     </div>
                   );
                 })()}
+
+                {canRevealSong && (
+                  <div className="flex flex-col items-center gap-1">
+                    <p className="text-[9px] leading-none text-white/65 [@media_(max-width:900px)_and_(max-height:500px)]:text-[8px]">
+                      Still stuck?
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRevealSong}
+                      disabled={isRevealingSong}
+                      className="rounded-md border border-white bg-black/35 px-2.5 py-1 text-[9px] font-semibold leading-none text-white shadow-[0_8px_18px_rgba(0,0,0,0.28)] backdrop-blur-sm transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isRevealingSong ? 'Revealing...' : 'Reveal Song'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               
