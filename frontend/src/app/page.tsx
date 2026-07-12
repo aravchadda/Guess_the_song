@@ -52,8 +52,10 @@ function HomeContent(): JSX.Element {
   const [selectedVideo, setSelectedVideo] = useState<string>(() => {
     return videos[Math.floor(Math.random() * videos.length)];
   });
+  const [videoPlaybackSrc, setVideoPlaybackSrc] = useState("");
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [isTvAudioReady, setIsTvAudioReady] = useState(false);
+  const [isTvMuted, setIsTvMuted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [categoryStep, setCategoryStep] = useState<'root' | 'category' | 'genre' | 'decade'>('root');
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(fallbackFilterOptions);
@@ -81,10 +83,10 @@ function HomeContent(): JSX.Element {
     const easedProgress = 1 - Math.pow(1 - Math.min(Math.max(progress, 0), 1), 2);
     const now = ctx.currentTime;
 
-    lowpass.frequency.setTargetAtTime(850 + easedProgress * 17150, now, 0.045);
-    highpass.frequency.setTargetAtTime(220 - easedProgress * 200, now, 0.045);
-    highShelf.gain.setTargetAtTime(-12 + easedProgress * 18, now, 0.045);
-    gain.gain.setTargetAtTime(0.24 + easedProgress * 0.76, now, 0.045);
+    lowpass.frequency.setTargetAtTime(520 + easedProgress * 17480, now, 0.035);
+    highpass.frequency.setTargetAtTime(260 - easedProgress * 240, now, 0.035);
+    highShelf.gain.setTargetAtTime(-18 + easedProgress * 24, now, 0.035);
+    gain.gain.setTargetAtTime(0.28 + easedProgress * 0.72, now, 0.035);
   }, []);
 
   const ensureTvAudio = useCallback((video: HTMLVideoElement) => {
@@ -156,11 +158,57 @@ function HomeContent(): JSX.Element {
     setCategoryStep('category');
   }, [showCategorySignInPrompt, token]);
 
-  // Load video when selectedVideo changes
   useEffect(() => {
     if (!selectedVideo) return;
 
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    setIsVideoLoading(true);
     setIsTvAudioReady(false);
+    setIsTvMuted(true);
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(console.log);
+      audioCtxRef.current = null;
+      mediaSourceRef.current = null;
+      lowpassFilterRef.current = null;
+      highpassFilterRef.current = null;
+      highShelfFilterRef.current = null;
+      gainNodeRef.current = null;
+    }
+    setVideoPlaybackSrc("");
+
+    const loadSelectedVideo = async () => {
+      try {
+        const response = await fetch(selectedVideo);
+        if (!response.ok) throw new Error(`Failed to load ${selectedVideo}`);
+        const blob = await response.blob();
+        if (cancelled) return;
+
+        objectUrl = URL.createObjectURL(blob);
+        setVideoPlaybackSrc(objectUrl);
+      } catch (err) {
+        console.log("Selected video preload error:", err);
+        if (!cancelled) {
+          setVideoPlaybackSrc(selectedVideo);
+        }
+      }
+    };
+
+    loadSelectedVideo();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [selectedVideo]);
+
+  // Decode the selected video before the page becomes interactive.
+  useEffect(() => {
+    if (!videoPlaybackSrc) return;
+
     let timeoutId: NodeJS.Timeout;
     let retryCount = 0;
     const maxRetries = 50; // 5 seconds max wait
@@ -179,7 +227,11 @@ function HomeContent(): JSX.Element {
         return;
       }
 
-      const handleCanPlayThrough = () => {
+      const showLoadedVideo = () => {
+        setIsTvMuted(true);
+        video.muted = true;
+        video.volume = 0;
+        video.pause();
         setIsVideoLoading(false);
         if (timeoutId) clearTimeout(timeoutId);
         video.removeEventListener('canplaythrough', handleCanPlayThrough);
@@ -187,14 +239,14 @@ function HomeContent(): JSX.Element {
         video.removeEventListener('loadeddata', handleLoadedData);
       };
 
+      const handleCanPlayThrough = () => {
+        showLoadedVideo();
+      };
+
       const handleLoadedData = () => {
-        // If video has enough data, consider it loaded
-        if (video.readyState >= 3) {
-          setIsVideoLoading(false);
-          if (timeoutId) clearTimeout(timeoutId);
-          video.removeEventListener('canplaythrough', handleCanPlayThrough);
-          video.removeEventListener('error', handleError);
-          video.removeEventListener('loadeddata', handleLoadedData);
+        // If a frame is decoded, the paused TV will not render black on mobile.
+        if (video.readyState >= 2) {
+          showLoadedVideo();
         }
       };
 
@@ -208,28 +260,24 @@ function HomeContent(): JSX.Element {
       };
 
       // Check if already loaded
-      if (video.readyState >= 3) {
-        setIsVideoLoading(false);
+      if (video.readyState >= 2) {
+        showLoadedVideo();
         return;
       }
 
       // Fallback timeout - hide loading after 10 seconds
       timeoutId = setTimeout(() => {
-        setIsVideoLoading(false);
-        console.warn('Video loading timeout, hiding loading screen');
+        console.warn('Video loading timeout, keeping loading screen visible');
       }, 10000);
 
       video.addEventListener('canplaythrough', handleCanPlayThrough, { once: true });
       video.addEventListener('loadeddata', handleLoadedData, { once: true });
       video.addEventListener('error', handleError, { once: true });
 
-      // Set video source and load if needed
-      const currentSrc = video.src.split('/').pop() || '';
-      const newSrc = selectedVideo.split('/').pop() || '';
-      if (currentSrc !== newSrc) {
-        video.src = selectedVideo;
-        video.load();
+      if (video.src !== videoPlaybackSrc) {
+        video.src = videoPlaybackSrc;
       }
+      video.load();
     };
 
     checkVideo();
@@ -237,18 +285,17 @@ function HomeContent(): JSX.Element {
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [selectedVideo]);
+  }, [selectedVideo, videoPlaybackSrc]);
 
   useEffect(() => {
-    if (isVideoLoading) return;
+    if (isVideoLoading || !videoPlaybackSrc) return;
 
     const video = document.getElementById("tv-video") as HTMLVideoElement | null;
     if (!video) return;
 
-    ensureTvAudio(video);
     setTvAudioQuality(0);
     setIsTvAudioReady(true);
-  }, [ensureTvAudio, isVideoLoading, setTvAudioQuality]);
+  }, [isVideoLoading, setTvAudioQuality, videoPlaybackSrc]);
 
   // Detect mobile device
   useEffect(() => {
@@ -274,7 +321,11 @@ function HomeContent(): JSX.Element {
           audioCtxRef.current.suspend().catch(console.log);
         }
       } else {
-        if (video && !video.paused) video.muted = false;
+        if (video && !video.paused) {
+          const muted = !(holdIntentRef.current || triggered);
+          setIsTvMuted(muted);
+          video.muted = muted;
+        }
         if (audioCtxRef.current?.state === "suspended") {
           audioCtxRef.current.resume().catch(console.log);
         }
@@ -330,28 +381,22 @@ function HomeContent(): JSX.Element {
       if (!video || !holdIntentRef.current || triggered) return;
 
       void (async () => {
+        setIsTvMuted(false);
         video.muted = false;
         video.volume = 1;
-
-        const audioCtx = ensureTvAudio(video);
-        setTvAudioQuality(0);
-
-        const resumeAudio = audioCtx
-          ? audioCtx.resume().catch((err) => {
-              console.log("Audio resume error:", err);
-            })
-          : Promise.resolve();
         const playVideo = video.play().catch((err) => {
           console.log("Playback error:", err);
         });
 
-        await Promise.all([resumeAudio, playVideo]);
+        await playVideo;
 
         if (!holdIntentRef.current || triggered) {
           if (!triggered) {
-            video.pause();
+            setIsTvMuted(true);
             video.muted = true;
             video.volume = 0;
+            video.pause();
+            setTvAudioQuality(0);
           }
           setTvAudioQuality(triggered ? 1 : 0);
           return;
@@ -360,7 +405,7 @@ function HomeContent(): JSX.Element {
     };
 
     startAudio();
-  }, [ensureTvAudio, setTvAudioQuality, triggered]);
+  }, [setTvAudioQuality, triggered]);
 
   // Shared function to stop holding
   const stopHold = useCallback(() => {
@@ -378,9 +423,10 @@ function HomeContent(): JSX.Element {
 
     const video = document.getElementById("tv-video") as HTMLVideoElement | null;
     if (video) {
-      video.pause();
+      setIsTvMuted(true);
       video.muted = true;
       video.volume = 0;
+      video.pause();
     }
   }, [setTvAudioQuality, triggered]);
 
@@ -391,22 +437,20 @@ function HomeContent(): JSX.Element {
     if (!video) return;
 
     holdIntentRef.current = true;
+    setIsTvMuted(false);
     video.muted = false;
     video.volume = 1;
 
     void (async () => {
-      const audioCtx = ensureTvAudio(video);
       setTvAudioQuality(1);
 
-      await audioCtx?.resume().catch((err) => {
-        console.log("Audio resume error:", err);
-      });
-
-      await video.play().catch((err) => {
+      const playVideo = video.play().catch((err) => {
         console.log("Playback error:", err);
       });
+
+      await playVideo;
     })();
-  }, [ensureTvAudio, isVideoLoading, setTvAudioQuality, skipIntroAnimation]);
+  }, [isVideoLoading, setTvAudioQuality, skipIntroAnimation]);
 
   // Handle mobile touch events
   const handleTouchStart = useCallback(async (e: React.TouchEvent) => {
@@ -644,11 +688,12 @@ function HomeContent(): JSX.Element {
       {/* --- TV WITH VIDEO --- */}
       <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ opacity: isVideoLoading || !isTvAudioReady ? 0 : 1 }}>
         <TVWithVideo 
-          videoSrc={selectedVideo} 
+          videoSrc={videoPlaybackSrc} 
           hold={hold}
           skipAnimation={skipIntroAnimation}
           videoId="tv-video"
           preload="auto"
+          muted={isTvMuted}
         >
           {!isVideoLoading && isTvAudioReady && !zoomed && (
             <motion.div
