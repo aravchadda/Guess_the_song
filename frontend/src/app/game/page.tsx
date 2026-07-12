@@ -141,6 +141,7 @@ function GamePageContent() {
   const [showViews, setShowViews] = useState(false);
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
+  const [isCarouselAudioReady, setIsCarouselAudioReady] = useState(false);
   // Pre-game mode selection ("Play All" vs "Play with Filters") - shown on
   // the TV once cutToGameScreen fires, before a song is actually picked.
   // The black-screen/year/views reveal sequence only starts once this
@@ -166,6 +167,7 @@ function GamePageContent() {
   const highShelfFilterRef = useRef<BiquadFilterNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const dingSoundRef = useRef<HTMLAudioElement | null>(null);
+  const hasUserUnlockedCarouselAudioRef = useRef(false);
   
   // Video refs for game screen background videos
   const onVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -1222,11 +1224,31 @@ function GamePageContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const unlockCarouselAudio = useCallback(() => {
+    const audio = backgroundAudioRef.current;
+    if (!audio) return;
+
+    hasUserUnlockedCarouselAudioRef.current = true;
+    audio.volume = 0.3;
+
+    const resumeAudioContext = audioCtxRef.current
+      ? audioCtxRef.current.resume().catch((err) => {
+          console.log('Audio resume error:', err);
+        })
+      : Promise.resolve();
+    const playAudio = audio.play().catch((err) => {
+      console.log('Audio play error:', err);
+    });
+
+    void Promise.all([resumeAudioContext, playAudio]);
+  }, []);
+
   // Helper function to start holding (for carousel)
   const startCarouselHold = useCallback(() => {
-    if (showGameScreen) return;
+    if (showGameScreen || !isCarouselAudioReady) return;
+    unlockCarouselAudio();
     setIsSpacebarHeld(true);
-  }, [showGameScreen]);
+  }, [isCarouselAudioReady, showGameScreen, unlockCarouselAudio]);
 
   // Helper function to stop holding and check if should transition
   const stopCarouselHold = useCallback(() => {
@@ -1337,6 +1359,7 @@ function GamePageContent() {
   // Play random audio when carousel is visible
   useEffect(() => {
     if (!showGameScreen) {
+      setIsCarouselAudioReady(false);
       // Stop existing audio if transitioning back to carousel
       if (backgroundAudioRef.current) {
         backgroundAudioRef.current.pause();
@@ -1364,16 +1387,54 @@ function GamePageContent() {
       
       // Create audio element for playback
       const audio = document.createElement('audio');
-      audio.src = randomAudio;
       audio.loop = true;
       audio.volume = 0.3; // Set volume to 30%
+      audio.preload = 'auto';
       document.body.appendChild(audio);
       backgroundAudioRef.current = audio;
+
+      let cancelled = false;
+      let audioObjectUrl: string | null = null;
+      let isMediaReady = audio.readyState >= 2;
+      let isGraphReady = false;
+      const markReady = () => {
+        if (!cancelled && isMediaReady && isGraphReady) {
+          setIsCarouselAudioReady(true);
+        }
+      };
+      const handleAudioReady = () => {
+        isMediaReady = true;
+        audio.removeEventListener('canplay', handleAudioReady);
+        audio.removeEventListener('loadeddata', handleAudioReady);
+        markReady();
+      };
+      audio.addEventListener('canplay', handleAudioReady, { once: true });
+      audio.addEventListener('loadeddata', handleAudioReady, { once: true });
+      const loadAudioBytes = async () => {
+        try {
+          const response = await fetch(randomAudio);
+          if (!response.ok) throw new Error(`Failed to preload ${randomAudio}`);
+          const blob = await response.blob();
+          if (cancelled) return;
+          audioObjectUrl = URL.createObjectURL(blob);
+          audio.src = audioObjectUrl;
+        } catch (err) {
+          console.log('Audio preload error:', err);
+          if (cancelled) return;
+          audio.src = randomAudio;
+        }
+
+        audio.load();
+        if (audio.readyState >= 2) {
+          handleAudioReady();
+        }
+      };
       
       // Setup audio context & filters for low frequencies by default
       const setupAudio = async () => {
         try {
-          const audioCtx = new AudioContext();
+          const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+          const audioCtx = new AudioContextCtor();
           const source = audioCtx.createMediaElementSource(audio);
           
           // Lowpass filter: allows lows (default at 500Hz to play lows only)
@@ -1408,17 +1469,51 @@ function GamePageContent() {
           highpassFilterRef.current = highpassFilter;
           highShelfFilterRef.current = highShelfFilter;
           gainNodeRef.current = gainNode;
-          
-          // Resume audio context and play audio
-          await audioCtx.resume();
-          await audio.play();
+          isGraphReady = true;
+          markReady();
+
+          if (hasUserUnlockedCarouselAudioRef.current) {
+            await Promise.all([
+              audioCtx.resume(),
+              audio.play(),
+            ]);
+          }
         } catch (err) {
           console.log('Error setting up audio:', err);
         }
       };
       
       setupAudio();
+      loadAudioBytes();
+
+      return () => {
+        cancelled = true;
+        audio.removeEventListener('canplay', handleAudioReady);
+        audio.removeEventListener('loadeddata', handleAudioReady);
+        if (audioObjectUrl) {
+          URL.revokeObjectURL(audioObjectUrl);
+        }
+        setIsCarouselAudioReady(false);
+        if (backgroundAudioRef.current) {
+          backgroundAudioRef.current.pause();
+          backgroundAudioRef.current.src = '';
+          if (backgroundAudioRef.current.parentNode) {
+            backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
+          }
+          backgroundAudioRef.current = null;
+          selectedAudioRef.current = null;
+        }
+        if (audioCtxRef.current) {
+          audioCtxRef.current.close();
+          audioCtxRef.current = null;
+          lowpassFilterRef.current = null;
+          highpassFilterRef.current = null;
+          highShelfFilterRef.current = null;
+          gainNodeRef.current = null;
+        }
+      };
     } else {
+      setIsCarouselAudioReady(false);
       // Stop audio when game screen is shown
       if (backgroundAudioRef.current) {
         backgroundAudioRef.current.pause();
@@ -1433,8 +1528,8 @@ function GamePageContent() {
         gainNodeRef.current.gain.setValueAtTime(1, now);
       }
     }
-    
     return () => {
+      setIsCarouselAudioReady(false);
       // Cleanup audio when carousel is hidden or component unmounts
       if (backgroundAudioRef.current) {
         backgroundAudioRef.current.pause();
@@ -1702,6 +1797,26 @@ function GamePageContent() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!showGameScreen && !isCarouselAudioReady && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="absolute inset-0 z-[45] flex items-center justify-center bg-[#0E0E10]"
+          >
+            <div className="text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"
+              />
+              <p className="text-white text-xs opacity-70 uppercase tracking-widest">Loading audio...</p>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
       
@@ -2291,8 +2406,9 @@ function GamePageContent() {
       <motion.div
         className="fixed bottom-2 sm:bottom-3 md:bottom-8 [@media_(max-width:900px)_and_(max-height:500px)]:bottom-1 [@media_(max-width:700px)_and_(orientation:portrait)]:bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 transform -translate-x-1/2 z-50 w-full px-2 sm:px-4"
         initial={{ opacity: 0 }}
-        animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
-            transition={{ duration: 0.3 }}
+        animate={{ opacity: showGameScreen ? 1 : isCarouselAudioReady ? carouselOpacity : 0 }}
+        transition={{ duration: 0.3 }}
+        style={{ pointerEvents: !showGameScreen && !isCarouselAudioReady ? 'none' : 'auto' }}
       >
         <motion.div
           className="flex flex-col items-center space-y-2 sm:space-y-3 md:space-y-6"

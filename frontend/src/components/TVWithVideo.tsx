@@ -8,10 +8,11 @@ interface TVWithVideoProps {
   hold: boolean;
   skipAnimation?: boolean;
   videoId?: string;
+  preload?: "none" | "metadata" | "auto";
   children?: ReactNode;
 }
 
-export default function TVWithVideo({ videoSrc, hold, skipAnimation = false, videoId = "tv-video", children }: TVWithVideoProps) {
+export default function TVWithVideo({ videoSrc, hold, skipAnimation = false, videoId = "tv-video", preload = "auto", children }: TVWithVideoProps) {
   const tvScale = hold ? 1.5 : 1;
   const contentScale = hold ? 0.6667 : 1;
   const scaleTransition = skipAnimation
@@ -42,7 +43,7 @@ export default function TVWithVideo({ videoSrc, hold, skipAnimation = false, vid
           loop
           muted
           playsInline
-          preload="auto"
+          preload={preload}
           className="w-full h-full object-cover"
           style={{ 
             opacity: 0.3,
