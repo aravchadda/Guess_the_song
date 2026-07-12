@@ -335,6 +335,11 @@ function HomeContent(): JSX.Element {
         await Promise.all([resumeAudio, playVideo]);
 
         if (!holdIntentRef.current || triggered) {
+          if (!triggered) {
+            video.pause();
+            video.muted = true;
+            video.volume = 0;
+          }
           setTvAudioQuality(triggered ? 1 : 0);
           return;
         }
@@ -360,11 +365,9 @@ function HomeContent(): JSX.Element {
 
     const video = document.getElementById("tv-video") as HTMLVideoElement | null;
     if (video) {
-      video.muted = false;
-      video.volume = 1;
-      void video.play().catch((err) => {
-        console.log("Playback error:", err);
-      });
+      video.pause();
+      video.muted = true;
+      video.volume = 0;
     }
   }, [setTvAudioQuality, triggered]);
 
@@ -867,7 +870,7 @@ function HomeContent(): JSX.Element {
           transition={{ delay: 1.6 }}
         >
           <div className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
-            Hold{" "}
+            Hold{" "}{isMobile ? 'and' : undefined}
             <Spacebar
               pressed={isSpacePressed}
               label={isMobile ? 'Press here' : undefined}

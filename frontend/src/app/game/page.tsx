@@ -2301,10 +2301,10 @@ function GamePageContent() {
           transition={{ delay: 0 }}
         >
           <div className="text-gray-400 text-[10px] sm:text-xs md:text-sm [@media_(max-width:900px)_and_(max-height:500px)]:text-[9px] px-2 sm:px-4 text-center flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
-            {isMobile ? 'Tap and hold' : 'Hold'}{" "}
+            {isMobile ? 'Tap and ' : 'Hold'}{" "}
             <Spacebar
               pressed={isSpacePressed}
-              label={isMobile ? 'Here' : undefined}
+              label={isMobile ? 'Hold here' : undefined}
               onMouseDown={isMobile ? undefined : (e) => {
                 e.preventDefault();
                 setIsSpacePressed(true);
