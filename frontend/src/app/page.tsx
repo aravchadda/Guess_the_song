@@ -53,6 +53,7 @@ function HomeContent(): JSX.Element {
     return videos[Math.floor(Math.random() * videos.length)];
   });
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isTvAudioReady, setIsTvAudioReady] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [categoryStep, setCategoryStep] = useState<'root' | 'category' | 'genre' | 'decade'>('root');
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(fallbackFilterOptions);
@@ -159,6 +160,7 @@ function HomeContent(): JSX.Element {
   useEffect(() => {
     if (!selectedVideo) return;
 
+    setIsTvAudioReady(false);
     let timeoutId: NodeJS.Timeout;
     let retryCount = 0;
     const maxRetries = 50; // 5 seconds max wait
@@ -236,6 +238,17 @@ function HomeContent(): JSX.Element {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [selectedVideo]);
+
+  useEffect(() => {
+    if (isVideoLoading) return;
+
+    const video = document.getElementById("tv-video") as HTMLVideoElement | null;
+    if (!video) return;
+
+    ensureTvAudio(video);
+    setTvAudioQuality(0);
+    setIsTvAudioReady(true);
+  }, [ensureTvAudio, isVideoLoading, setTvAudioQuality]);
 
   // Detect mobile device
   useEffect(() => {
@@ -609,7 +622,7 @@ function HomeContent(): JSX.Element {
 
       {/* Loading Screen */}
       <AnimatePresence>
-        {isVideoLoading && (
+        {(isVideoLoading || !isTvAudioReady) && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -629,14 +642,15 @@ function HomeContent(): JSX.Element {
       </AnimatePresence>
 
       {/* --- TV WITH VIDEO --- */}
-      <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ opacity: isVideoLoading ? 0 : 1 }}>
+      <div className="absolute z-[0] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ opacity: isVideoLoading || !isTvAudioReady ? 0 : 1 }}>
         <TVWithVideo 
           videoSrc={selectedVideo} 
           hold={hold}
           skipAnimation={skipIntroAnimation}
           videoId="tv-video"
+          preload="auto"
         >
-          {!isVideoLoading && !zoomed && (
+          {!isVideoLoading && isTvAudioReady && !zoomed && (
             <motion.div
               className="w-full px-2 sm:px-4"
               animate={{
@@ -858,7 +872,7 @@ function HomeContent(): JSX.Element {
       </div>
 
       {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
-      {!isVideoLoading && !zoomed && !triggered && (
+      {!isVideoLoading && isTvAudioReady && !zoomed && !triggered && (
         <motion.div
           className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2 w-full max-w-[90vw]"
           style={{
