@@ -58,6 +58,7 @@ function HomeContent(): JSX.Element {
   const [isTvAudioReady, setIsTvAudioReady] = useState(false);
   const [isTvMuted, setIsTvMuted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isPortraitMobile, setIsPortraitMobile] = useState(false);
   const [categoryStep, setCategoryStep] = useState<'root' | 'category' | 'genre' | 'decade'>('root');
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(fallbackFilterOptions);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -307,7 +308,9 @@ function HomeContent(): JSX.Element {
     const checkMobile = () => {
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const isSmallScreen = window.innerWidth < 768; // md breakpoint
-      setIsMobile(isTouchDevice || isSmallScreen);
+      const mobile = isTouchDevice || isSmallScreen;
+      setIsMobile(mobile);
+      setIsPortraitMobile(mobile && window.innerHeight >= window.innerWidth);
     };
     
     checkMobile();
@@ -924,7 +927,7 @@ function HomeContent(): JSX.Element {
       {/* --- SPACEBAR INSTRUCTION + ENTER BUTTON --- */}
       {!isVideoLoading && isTvAudioReady && !zoomed && !triggered && (
         <motion.div
-          className="absolute z-20 text-center px-4 sm:px-6 text-white left-1/2 w-full max-w-[90vw]"
+          className="absolute z-20 text-center px-2 sm:px-4 text-white left-1/2 w-full"
           style={{
             bottom: isMobile ? 'calc(env(safe-area-inset-bottom) + 1rem)' : 'clamp(1rem, 5vh, 3rem)',
             transform: 'translateX(-50%)',
@@ -933,11 +936,11 @@ function HomeContent(): JSX.Element {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.6 }}
         >
-          <div className="text-gray-400 px-4 text-center flex items-center justify-center gap-2 flex-wrap" style={{ fontSize: 'clamp(0.625rem, 1.2vw, 0.875rem)' }}>
-            Hold{" "}{isMobile ? 'and' : undefined}
+          <div className="text-gray-400 text-[10px] sm:text-xs md:text-sm [@media_(max-width:900px)_and_(max-height:500px)]:text-[9px] px-2 sm:px-4 text-center flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
+            {isMobile ? 'Tap and ' : 'Hold'}{" "}
             <Spacebar
               pressed={isSpacePressed}
-              label={isMobile ? 'Press here' : undefined}
+              label={isMobile ? 'Hold here' : undefined}
               onMouseDown={isMobile ? undefined : async (e) => {
                 if (!triggered) {
                   e.preventDefault();
@@ -964,13 +967,21 @@ function HomeContent(): JSX.Element {
               onTouchCancel={isMobile ? handleTouchCancel : undefined}
               className="touch-none"
               style={{
-                minWidth: isMobile ? 'clamp(150px, 24vw, 225px)' : 'clamp(150px, 19.5vw, 225px)',
-                minHeight: isMobile ? 'clamp(30px, 4.5vw, 39px)' : 'clamp(21px, 2.4vw, 27px)',
-                padding: isMobile
-                  ? 'clamp(0.3rem, 0.9vw, 0.45rem) clamp(1.5rem, 3.75vw, 2.25rem)'
+                minWidth: isPortraitMobile
+                  ? 'clamp(150px, 44vw, 190px)'
+                  : isMobile ? 'clamp(112px, 18vw, 170px)' : 'clamp(150px, 19.5vw, 240px)',
+                minHeight: isPortraitMobile
+                  ? 'clamp(32px, 9vw, 42px)'
+                  : isMobile ? 'clamp(26px, 4vw, 34px)' : 'clamp(21px, 2.4vw, 27px)',
+                padding: isPortraitMobile
+                  ? 'clamp(0.28rem, 1vw, 0.45rem) clamp(1.25rem, 4vw, 1.75rem)'
+                  : isMobile
+                  ? 'clamp(0.22rem, 0.7vw, 0.36rem) clamp(1rem, 2.6vw, 1.6rem)'
                   : 'clamp(0.15rem, 0.45vw, 0.3rem) clamp(1.125rem, 2.25vw, 1.875rem)',
-                fontSize: isMobile
-                  ? 'clamp(0.9375rem, 1.95vw, 1.125rem)'
+                fontSize: isPortraitMobile
+                  ? 'clamp(0.85rem, 3.5vw, 1rem)'
+                  : isMobile
+                  ? 'clamp(0.75rem, 1.45vw, 0.95rem)'
                   : 'clamp(0.75rem, 1.2vw, 0.9375rem)',
               }}
               overlay={
@@ -982,7 +993,7 @@ function HomeContent(): JSX.Element {
                 />
               }
             />{" "}
-            to charge and enter.
+            <span className="[@media_(max-width:900px)_and_(max-height:500px)]:hidden">to charge and enter.</span>
           </div>
         </motion.div>
       )}
