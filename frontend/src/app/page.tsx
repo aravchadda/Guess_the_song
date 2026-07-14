@@ -11,6 +11,7 @@ import SignInPrompt from "@/components/SignInPrompt";
 import { useAuth } from "@/lib/auth";
 import { getFilterOptions } from "@/lib/api";
 import type { FilterOptions } from "@/lib/api";
+import { preloadNextCarouselAudio } from "@/lib/carouselAudioPreloader";
 
 // List of all videos in compressed folder
 const videos = [
@@ -126,6 +127,10 @@ function HomeContent(): JSX.Element {
 
     return audioCtxRef.current;
   }, [setTvAudioQuality]);
+
+  useEffect(() => {
+    void preloadNextCarouselAudio();
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('menu') !== '1') return;

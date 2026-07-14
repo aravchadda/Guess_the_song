@@ -9,6 +9,13 @@ import { getAudioManager } from '@/lib/audioManager';
 import { useAuth } from '@/lib/auth';
 import { startPlay, submitGuess, skipLevel, revealSong, searchSongs, getMyStats, API_URL } from '@/lib/api';
 import type { Song, GuessResponse, SearchResult, GameFilters, PlayResponse } from '@/lib/api';
+import {
+  consumePreloadedCarouselAudio,
+  getRandomCarouselAudioUrl,
+  preloadNextCarouselAudio,
+  releasePreloadedCarouselAudio,
+  type PreloadedCarouselAudio,
+} from '@/lib/carouselAudioPreloader';
 import Carousel from '@/components/Carousel';
 import VideoPlayer from '@/components/VideoPlayer';
 import Leaderboard from '@/components/Leaderboard';
@@ -73,17 +80,6 @@ const carouselItemsRow2 = shuffleArray(carouselItems);
 const carouselItemsRow3 = shuffleArray(carouselItems);
 const portraitCarouselRows = Array.from({ length: 7 }, () => shuffleArray(carouselItems));
 
-// List of audio files for background carousel
-const audioFiles = [
-  "/audio/ariana.mp3",
-  "/audio/bad-bunny.mp3",
-  "/audio/kendrick.mp3",
-  "/audio/single-ladies.mp3",
-  "/audio/royals.mp3",
-  "/audio/hard-times.mp3",
-  "/audio/tame-impala.mp3",
-];
-
 const GAME_SIGN_IN_PROMPT_KEY = 'game_sign_in_prompt_seen';
 
 function GamePageContent() {
@@ -141,7 +137,6 @@ function GamePageContent() {
   const [showViews, setShowViews] = useState(false);
   const [showFullGameScreen, setShowFullGameScreen] = useState(false);
   const [isGameVideoLoading, setIsGameVideoLoading] = useState(false);
-  const [isCarouselAudioReady, setIsCarouselAudioReady] = useState(false);
   // Pre-game mode selection ("Play All" vs "Play with Filters") - shown on
   // the TV once cutToGameScreen fires, before a song is actually picked.
   // The black-screen/year/views reveal sequence only starts once this
@@ -159,8 +154,8 @@ function GamePageContent() {
   const speedMultiplierRef = useRef(1); // Ref for smooth animation updates without re-renders
   const lastUIUpdateTimeRef = useRef<number>(0); // For throttling UI updates
   const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activePreloadedAudioRef = useRef<PreloadedCarouselAudio | null>(null);
   const overlayVideoRef = useRef<HTMLVideoElement | null>(null);
-  const selectedAudioRef = useRef<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lowpassFilterRef = useRef<BiquadFilterNode | null>(null);
   const highpassFilterRef = useRef<BiquadFilterNode | null>(null);
@@ -1096,16 +1091,14 @@ function GamePageContent() {
       setHoldProgress(0);
       lastUIUpdateTimeRef.current = 0;
       spacebarHoldStartTimeRef.current = null;
-      // Reset filters to play lows by default when spacebar is released
       if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
         const ctx = audioCtxRef.current;
         const now = ctx.currentTime;
         lowpassFilterRef.current.frequency.setValueAtTime(500, now);
-        highpassFilterRef.current.frequency.setValueAtTime(20, now); // Very low to allow all frequencies
-        highShelfFilterRef.current.gain.setValueAtTime(0, now); // No high boost
-        gainNodeRef.current.gain.setValueAtTime(1, now); // Normal gain
+        highpassFilterRef.current.frequency.setValueAtTime(20, now);
+        highShelfFilterRef.current.gain.setValueAtTime(0, now);
+        gainNodeRef.current.gain.setValueAtTime(1, now);
       }
-      // Reset audio volume to default
       if (backgroundAudioRef.current) {
         backgroundAudioRef.current.volume = 0.3;
       }
@@ -1127,7 +1120,6 @@ function GamePageContent() {
         setHoldProgress(0);
         lastUIUpdateTimeRef.current = 0;
         animationFrameRef.current = null;
-        // Reset filters to play lows by default
         if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
           const ctx = audioCtxRef.current;
           const now = ctx.currentTime;
@@ -1136,7 +1128,6 @@ function GamePageContent() {
           highShelfFilterRef.current.gain.setValueAtTime(0, now);
           gainNodeRef.current.gain.setValueAtTime(1, now);
         }
-        // Reset audio volume to default
         if (backgroundAudioRef.current) {
           backgroundAudioRef.current.volume = 0.3;
         }
@@ -1158,40 +1149,25 @@ function GamePageContent() {
       const now = Date.now();
       if (now - lastUIUpdateTimeRef.current >= 100) {
         setHoldProgress(progress);
-      setSpeedMultiplier(newMultiplier);
+        setSpeedMultiplier(newMultiplier);
         lastUIUpdateTimeRef.current = now;
       }
-      
-      // Update audio filters: transition from lows only to everything with amplified highs
-      // Lowpass filter increases to allow all frequencies
-      // High shelf filter boosts highs while keeping all frequencies
+
       if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
         const ctx = audioCtxRef.current;
         const now = ctx.currentTime;
-        
-        // Lowpass filter: increase from 500Hz (lows only) to 20000Hz (all frequencies)
-        const lowpassFreq = 500 + progress * 19500; // 500Hz to 20000Hz
-        lowpassFilterRef.current.frequency.setValueAtTime(
-          Math.min(lowpassFreq, 20000),
-          now
-        );
-        
-        // Highpass filter: keep at 20Hz (allows all frequencies to pass through)
+        const lowpassFreq = 500 + progress * 19500;
+        const highShelfGain = progress * 12;
+        const gainValue = 1 + progress * 0.5;
+
+        lowpassFilterRef.current.frequency.setValueAtTime(Math.min(lowpassFreq, 20000), now);
         highpassFilterRef.current.frequency.setValueAtTime(20, now);
-        
-        // High shelf filter: boost highs - escalate from 0dB to +12dB
-        // This amplifies highs while keeping all frequencies
-        const highShelfGain = progress * 12; // 0dB to 12dB boost
         highShelfFilterRef.current.gain.setValueAtTime(highShelfGain, now);
-        
-        // Gain: slight overall amplification - escalate from 1x to 1.5x
-        const gainValue = 1 + progress * 0.5; // 1x to 1.5x amplification
         gainNodeRef.current.gain.setValueAtTime(gainValue, now);
       }
-      
-      // Increase audio volume as filter goes higher - escalate from 0.3 to 0.8
+
       if (backgroundAudioRef.current) {
-        const volumeValue = 0.3 + progress * 0.5; // 0.3 to 0.8 (30% to 80%)
+        const volumeValue = 0.3 + progress * 0.5;
         backgroundAudioRef.current.volume = Math.min(volumeValue, 1);
       }
 
@@ -1233,11 +1209,11 @@ function GamePageContent() {
 
     const resumeAudioContext = audioCtxRef.current
       ? audioCtxRef.current.resume().catch((err) => {
-          console.log('Audio resume error:', err);
+          console.log('Carousel audio resume error:', err);
         })
       : Promise.resolve();
     const playAudio = audio.play().catch((err) => {
-      console.log('Audio play error:', err);
+      console.log('Carousel audio play error:', err);
     });
 
     void Promise.all([resumeAudioContext, playAudio]);
@@ -1245,10 +1221,10 @@ function GamePageContent() {
 
   // Helper function to start holding (for carousel)
   const startCarouselHold = useCallback(() => {
-    if (showGameScreen || !isCarouselAudioReady) return;
+    if (showGameScreen) return;
     unlockCarouselAudio();
     setIsSpacebarHeld(true);
-  }, [isCarouselAudioReady, showGameScreen, unlockCarouselAudio]);
+  }, [showGameScreen, unlockCarouselAudio]);
 
   // Helper function to stop holding and check if should transition
   const stopCarouselHold = useCallback(() => {
@@ -1266,8 +1242,7 @@ function GamePageContent() {
     setHoldProgress(0);
     spacebarHoldStartTimeRef.current = null;
     setIsSpacebarHeld(false);
-    
-    // Reset filters to play lows by default when spacebar is released
+
     if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
       const ctx = audioCtxRef.current;
       const now = ctx.currentTime;
@@ -1276,7 +1251,6 @@ function GamePageContent() {
       highShelfFilterRef.current.gain.setValueAtTime(0, now);
       gainNodeRef.current.gain.setValueAtTime(1, now);
     }
-    // Reset audio volume to default
     if (backgroundAudioRef.current) {
       backgroundAudioRef.current.volume = 0.3;
     }
@@ -1356,11 +1330,9 @@ function GamePageContent() {
     };
   }, [showGameScreen, isSpacebarHeld, startCarouselHold, stopCarouselHold, returnToCarousel, handlePlay, showFullGameScreen, isFinished]);
 
-  // Play random audio when carousel is visible
+  // Prepare carousel ambient audio without blocking the carousel UI.
   useEffect(() => {
-    if (!showGameScreen) {
-      setIsCarouselAudioReady(false);
-      // Stop existing audio if transitioning back to carousel
+    const cleanupCarouselAudio = () => {
       if (backgroundAudioRef.current) {
         backgroundAudioRef.current.pause();
         backgroundAudioRef.current.src = '';
@@ -1368,189 +1340,83 @@ function GamePageContent() {
           backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
         }
         backgroundAudioRef.current = null;
-        selectedAudioRef.current = null;
       }
-      
-      // Cleanup audio context if exists
+
       if (audioCtxRef.current) {
-        audioCtxRef.current.close();
+        audioCtxRef.current.close().catch(console.log);
         audioCtxRef.current = null;
-        lowpassFilterRef.current = null;
-        highpassFilterRef.current = null;
-        highShelfFilterRef.current = null;
-        gainNodeRef.current = null;
       }
-      
-      // Select a random audio file
-      const randomAudio = audioFiles[Math.floor(Math.random() * audioFiles.length)];
-      selectedAudioRef.current = randomAudio;
-      
-      // Create audio element for playback
-      const audio = document.createElement('audio');
-      audio.loop = true;
-      audio.volume = 0.3; // Set volume to 30%
-      audio.preload = 'auto';
-      document.body.appendChild(audio);
-      backgroundAudioRef.current = audio;
 
-      let cancelled = false;
-      let audioObjectUrl: string | null = null;
-      let isMediaReady = audio.readyState >= 2;
-      let isGraphReady = false;
-      const markReady = () => {
-        if (!cancelled && isMediaReady && isGraphReady) {
-          setIsCarouselAudioReady(true);
-        }
-      };
-      const handleAudioReady = () => {
-        isMediaReady = true;
-        audio.removeEventListener('canplay', handleAudioReady);
-        audio.removeEventListener('loadeddata', handleAudioReady);
-        markReady();
-      };
-      audio.addEventListener('canplay', handleAudioReady, { once: true });
-      audio.addEventListener('loadeddata', handleAudioReady, { once: true });
-      const loadAudioBytes = async () => {
-        try {
-          const response = await fetch(randomAudio);
-          if (!response.ok) throw new Error(`Failed to preload ${randomAudio}`);
-          const blob = await response.blob();
-          if (cancelled) return;
-          audioObjectUrl = URL.createObjectURL(blob);
-          audio.src = audioObjectUrl;
-        } catch (err) {
-          console.log('Audio preload error:', err);
-          if (cancelled) return;
-          audio.src = randomAudio;
-        }
-
-        audio.load();
-        if (audio.readyState >= 2) {
-          handleAudioReady();
-        }
-      };
-      
-      // Setup audio context & filters for low frequencies by default
-      const setupAudio = async () => {
-        try {
-          const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-          const audioCtx = new AudioContextCtor();
-          const source = audioCtx.createMediaElementSource(audio);
-          
-          // Lowpass filter: allows lows (default at 500Hz to play lows only)
-          const lowpassFilter = audioCtx.createBiquadFilter();
-          lowpassFilter.type = "lowpass";
-          lowpassFilter.frequency.value = 500; // Start with lows only
-          
-          // Highpass filter: keep at 20Hz to allow all frequencies (won't filter anything)
-          const highpassFilter = audioCtx.createBiquadFilter();
-          highpassFilter.type = "highpass";
-          highpassFilter.frequency.value = 20; // Very low (allows all frequencies)
-          
-          // High shelf filter: will boost highs when spacebar is held
-          const highShelfFilter = audioCtx.createBiquadFilter();
-          highShelfFilter.type = "highshelf";
-          highShelfFilter.frequency.value = 2000; // Boost frequencies above 2000Hz
-          highShelfFilter.gain.value = 0; // No boost initially
-          
-          // Gain node: slight overall amplification
-          const gainNode = audioCtx.createGain();
-          gainNode.gain.value = 1; // Normal gain by default
-          
-          // Connect: source -> lowpass -> highpass -> high shelf -> gain -> destination
-          source.connect(lowpassFilter);
-          lowpassFilter.connect(highpassFilter);
-          highpassFilter.connect(highShelfFilter);
-          highShelfFilter.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-          
-          audioCtxRef.current = audioCtx;
-          lowpassFilterRef.current = lowpassFilter;
-          highpassFilterRef.current = highpassFilter;
-          highShelfFilterRef.current = highShelfFilter;
-          gainNodeRef.current = gainNode;
-          isGraphReady = true;
-          markReady();
-
-          if (hasUserUnlockedCarouselAudioRef.current) {
-            await Promise.all([
-              audioCtx.resume(),
-              audio.play(),
-            ]);
-          }
-        } catch (err) {
-          console.log('Error setting up audio:', err);
-        }
-      };
-      
-      setupAudio();
-      loadAudioBytes();
-
-      return () => {
-        cancelled = true;
-        audio.removeEventListener('canplay', handleAudioReady);
-        audio.removeEventListener('loadeddata', handleAudioReady);
-        if (audioObjectUrl) {
-          URL.revokeObjectURL(audioObjectUrl);
-        }
-        setIsCarouselAudioReady(false);
-        if (backgroundAudioRef.current) {
-          backgroundAudioRef.current.pause();
-          backgroundAudioRef.current.src = '';
-          if (backgroundAudioRef.current.parentNode) {
-            backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
-          }
-          backgroundAudioRef.current = null;
-          selectedAudioRef.current = null;
-        }
-        if (audioCtxRef.current) {
-          audioCtxRef.current.close();
-          audioCtxRef.current = null;
-          lowpassFilterRef.current = null;
-          highpassFilterRef.current = null;
-          highShelfFilterRef.current = null;
-          gainNodeRef.current = null;
-        }
-      };
-    } else {
-      setIsCarouselAudioReady(false);
-      // Stop audio when game screen is shown
-      if (backgroundAudioRef.current) {
-        backgroundAudioRef.current.pause();
-      }
-      // Reset filters to play lows by default when game screen is shown
-      if (lowpassFilterRef.current && highpassFilterRef.current && highShelfFilterRef.current && gainNodeRef.current && audioCtxRef.current) {
-        const ctx = audioCtxRef.current;
-        const now = ctx.currentTime;
-        lowpassFilterRef.current.frequency.setValueAtTime(500, now);
-        highpassFilterRef.current.frequency.setValueAtTime(20, now);
-        highShelfFilterRef.current.gain.setValueAtTime(0, now);
-        gainNodeRef.current.gain.setValueAtTime(1, now);
-      }
-    }
-    return () => {
-      setIsCarouselAudioReady(false);
-      // Cleanup audio when carousel is hidden or component unmounts
-      if (backgroundAudioRef.current) {
-        backgroundAudioRef.current.pause();
-        backgroundAudioRef.current.src = '';
-        if (backgroundAudioRef.current.parentNode) {
-          backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
-        }
-        backgroundAudioRef.current = null;
-        selectedAudioRef.current = null;
-      }
-      // Cleanup audio context
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close();
-        audioCtxRef.current = null;
-        lowpassFilterRef.current = null;
-        highpassFilterRef.current = null;
-        highShelfFilterRef.current = null;
-        gainNodeRef.current = null;
-      }
+      releasePreloadedCarouselAudio(activePreloadedAudioRef.current);
+      activePreloadedAudioRef.current = null;
+      lowpassFilterRef.current = null;
+      highpassFilterRef.current = null;
+      highShelfFilterRef.current = null;
+      gainNodeRef.current = null;
     };
-  }, [showGameScreen]);
+
+    if (showGameScreen) {
+      cleanupCarouselAudio();
+      void preloadNextCarouselAudio();
+      return cleanupCarouselAudio;
+    }
+
+    cleanupCarouselAudio();
+
+    const preloadedAudio = consumePreloadedCarouselAudio();
+    activePreloadedAudioRef.current = preloadedAudio;
+
+    const audio = document.createElement('audio');
+    audio.loop = true;
+    audio.volume = 0.3;
+    audio.preload = 'auto';
+    audio.src = preloadedAudio?.playbackUrl ?? getRandomCarouselAudioUrl();
+    document.body.appendChild(audio);
+    backgroundAudioRef.current = audio;
+
+    try {
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextCtor) {
+        const audioCtx = new AudioContextCtor();
+        const source = audioCtx.createMediaElementSource(audio);
+        const lowpassFilter = audioCtx.createBiquadFilter();
+        const highpassFilter = audioCtx.createBiquadFilter();
+        const highShelfFilter = audioCtx.createBiquadFilter();
+        const gainNode = audioCtx.createGain();
+
+        lowpassFilter.type = 'lowpass';
+        lowpassFilter.frequency.value = 500;
+        highpassFilter.type = 'highpass';
+        highpassFilter.frequency.value = 20;
+        highShelfFilter.type = 'highshelf';
+        highShelfFilter.frequency.value = 2000;
+        highShelfFilter.gain.value = 0;
+        gainNode.gain.value = 1;
+
+        source.connect(lowpassFilter);
+        lowpassFilter.connect(highpassFilter);
+        highpassFilter.connect(highShelfFilter);
+        highShelfFilter.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        audioCtxRef.current = audioCtx;
+        lowpassFilterRef.current = lowpassFilter;
+        highpassFilterRef.current = highpassFilter;
+        highShelfFilterRef.current = highShelfFilter;
+        gainNodeRef.current = gainNode;
+      }
+    } catch (error) {
+      console.log('Error setting up carousel audio:', error);
+    }
+
+    if (hasUserUnlockedCarouselAudioRef.current) {
+      unlockCarouselAudio();
+    }
+
+    void preloadNextCarouselAudio();
+
+    return cleanupCarouselAudio;
+  }, [showGameScreen, unlockCarouselAudio]);
 
   // Initialize ding sound
   useEffect(() => {
@@ -1718,13 +1584,6 @@ function GamePageContent() {
   useEffect(() => {
     return () => {
       audioManager.current.stop();
-      if (backgroundAudioRef.current) {
-        backgroundAudioRef.current.pause();
-        backgroundAudioRef.current.src = '';
-        if (backgroundAudioRef.current.parentNode) {
-          backgroundAudioRef.current.parentNode.removeChild(backgroundAudioRef.current);
-        }
-      }
       if (overlayVideoRef.current) {
         overlayVideoRef.current.pause();
       }
@@ -1800,26 +1659,6 @@ function GamePageContent() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {!showGameScreen && !isCarouselAudioReady && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="absolute inset-0 z-[45] flex items-center justify-center bg-[#0E0E10]"
-          >
-            <div className="text-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"
-              />
-              <p className="text-white text-xs opacity-70 uppercase tracking-widest">Loading audio...</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
       {/* Overlay Video Background - Always visible */}
       <AnimatePresence>
         <motion.video
@@ -2406,9 +2245,9 @@ function GamePageContent() {
       <motion.div
         className="fixed bottom-2 sm:bottom-3 md:bottom-8 [@media_(max-width:900px)_and_(max-height:500px)]:bottom-1 [@media_(max-width:700px)_and_(orientation:portrait)]:bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 transform -translate-x-1/2 z-50 w-full px-2 sm:px-4"
         initial={{ opacity: 0 }}
-        animate={{ opacity: showGameScreen ? 1 : isCarouselAudioReady ? carouselOpacity : 0 }}
+        animate={{ opacity: showGameScreen ? 1 : carouselOpacity }}
         transition={{ duration: 0.3 }}
-        style={{ pointerEvents: !showGameScreen && !isCarouselAudioReady ? 'none' : 'auto' }}
+        style={{ pointerEvents: 'auto' }}
       >
         <motion.div
           className="flex flex-col items-center space-y-2 sm:space-y-3 md:space-y-6"
