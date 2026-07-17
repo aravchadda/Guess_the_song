@@ -343,9 +343,11 @@ function GamePageContent() {
       
       if (response.correct) {
         // Correct guess - game won
+        const finalPlaybackLevel = (availableLevels.includes(3) ? 3 : Math.max(...availableLevels)) as 1 | 2 | 3;
         setIsCorrect(true);
         setIsFinished(true);
         setReveal(response.reveal || null);
+        setCurrentLevel(finalPlaybackLevel);
         if (typeof response.totalPoints === 'number') setTotalPoints(response.totalPoints);
         if (typeof response.pointsAwarded === 'number') setLastPointsAwarded(response.pointsAwarded);
         setLeaderboardRefreshKey((k) => k + 1);
@@ -353,10 +355,39 @@ function GamePageContent() {
         setIsPlaying(false);
         stopVideoSequence();
         setMessage('');
+        setIsLoading(true);
         // Show success popup
         setPopupMessage('Congrats you guessed it right');
         setPopupType('success');
         setShowPopup(true);
+
+        try {
+          await audioManager.current.initialize();
+          await audioManager.current.loadLevel(
+            song.id,
+            finalPlaybackLevel,
+            song.audio_urls,
+            API_URL
+          );
+
+          const handleAudioEnd = () => {
+            audioManager.current.stop();
+            setIsPlaying(false);
+            stopVideoSequence();
+          };
+          audioManager.current.setOnEnded(handleAudioEnd);
+          setPlaybackProgress(0);
+          audioManager.current.play(song.id, finalPlaybackLevel);
+          setIsPlaying(true);
+          const levelNames = ['', 'drums', 'Instruments', 'vocals'];
+          setMessage(`🎵 Playing ${levelNames[finalPlaybackLevel]}...`);
+          startVideoSequence();
+        } catch (audioError) {
+          console.error(`Error playing level ${finalPlaybackLevel} after correct guess:`, audioError);
+          setMessage('❌ Error loading audio. Tap play to retry.');
+        } finally {
+          setIsLoading(false);
+        }
       } else {
         // Wrong guess
         // Show error popup
@@ -387,6 +418,7 @@ function GamePageContent() {
             .filter((lvl) => lvl > currentLevel)
             .sort((a, b) => a - b)[0] as 1 | 2 | 3;
           setCurrentLevel(nextLevel);
+          setPlaybackProgress(0);
           setLastGuessedLevel(null); // Reset for new level
           setIsLoading(true);
           await audioManager.current.loadLevel(
@@ -878,10 +910,12 @@ function GamePageContent() {
     try {
       setIsRevealingSong(true);
       const response = await revealSong(playId);
+      const finalPlaybackLevel = (availableLevels.includes(3) ? 3 : Math.max(...availableLevels)) as 1 | 2 | 3;
 
       setIsCorrect(false);
       setIsFinished(true);
       setReveal(response.reveal || null);
+      setCurrentLevel(finalPlaybackLevel);
       setLastPointsAwarded(null);
       if (typeof response.totalPoints === 'number') setTotalPoints(response.totalPoints);
       setLeaderboardRefreshKey((key) => key + 1);
@@ -891,12 +925,41 @@ function GamePageContent() {
       setMessage('');
       setGuess('');
       setShowSuggestions(false);
+      setIsLoading(true);
+
+      try {
+        await audioManager.current.initialize();
+        await audioManager.current.loadLevel(
+          song.id,
+          finalPlaybackLevel,
+          song.audio_urls,
+          API_URL
+        );
+
+        const handleAudioEnd = () => {
+          audioManager.current.stop();
+          setIsPlaying(false);
+          stopVideoSequence();
+        };
+        audioManager.current.setOnEnded(handleAudioEnd);
+        setPlaybackProgress(0);
+        audioManager.current.play(song.id, finalPlaybackLevel);
+        setIsPlaying(true);
+        const levelNames = ['', 'drums', 'Instruments', 'vocals'];
+        setMessage(`🎵 Playing ${levelNames[finalPlaybackLevel]}...`);
+        startVideoSequence();
+      } catch (audioError) {
+        console.error(`Error playing level ${finalPlaybackLevel} after reveal:`, audioError);
+        setMessage('❌ Error loading audio. Tap play to retry.');
+      } finally {
+        setIsLoading(false);
+      }
     } catch (error: any) {
       setMessage(`❌ ${error.message || 'Failed to reveal song'}`);
     } finally {
       setIsRevealingSong(false);
     }
-  }, [currentLevel, isFinished, isRevealingSong, lastAvailableLevel, playId, song, stopVideoSequence]);
+  }, [availableLevels, currentLevel, isFinished, isRevealingSong, lastAvailableLevel, playId, song, startVideoSequence, stopVideoSequence]);
 
   const handleSkip = useCallback(async () => {
     if (!playId || currentLevel === Math.max(...availableLevels) || isFinished || !song) return;
@@ -912,6 +975,7 @@ function GamePageContent() {
       // Use the level from backend response, or advance manually
       const nextLevel = (response.currentLevel || currentLevel + 1) as 1 | 2 | 3;
       setCurrentLevel(nextLevel);
+      setPlaybackProgress(0);
       setLastGuessedLevel(null);
       setReveal(null);
       setMessage('');
@@ -936,6 +1000,7 @@ function GamePageContent() {
         }
         
         // Auto-play after loading
+        setPlaybackProgress(0);
         audioManager.current.play(song.id, nextLevel);
         setIsPlaying(true);
         const levelNames = ['', 'drums', 'Instruments', 'vocals'];
@@ -992,7 +1057,7 @@ function GamePageContent() {
     if (!song) return;
     
     if (isPlaying) {
-      audioManager.current.stop();
+      audioManager.current.pause();
       setIsPlaying(false);
       stopVideoSequence();
     } else {
@@ -1013,6 +1078,9 @@ function GamePageContent() {
 
         // Ensure callback is set before playing
         setupAudioEndCallback();
+        if (!audioManager.current.getIsPaused()) {
+          setPlaybackProgress(0);
+        }
         audioManager.current.play(song.id, currentLevel);
         setIsPlaying(true);
         setMessage(`🎵 Playing ${levelNames[currentLevel]}...`);
@@ -1037,6 +1105,7 @@ function GamePageContent() {
     setSong(null);
     setCurrentLevel(1);
     setIsPlaying(false);
+    setPlaybackProgress(0);
     setGuess('');
     setMessage('');
     setIsCorrect(false);
@@ -1293,7 +1362,7 @@ function GamePageContent() {
           return; // Allow normal 'p' behavior in input fields
         }
         
-        if (showGameScreen && showFullGameScreen && !isFinished) {
+        if (showGameScreen && showFullGameScreen) {
           e.preventDefault();
           handlePlay();
         }
@@ -1567,10 +1636,12 @@ function GamePageContent() {
 
   // Update playback progress while playing
   useEffect(() => {
-    if (!isPlaying || !showGameScreen || !showFullGameScreen) {
+    if (!showGameScreen || !showFullGameScreen) {
       setPlaybackProgress(0);
       return;
     }
+
+    if (!isPlaying) return;
 
     const interval = setInterval(() => {
       const progress = audioManager.current.getProgress();
@@ -1747,8 +1818,7 @@ function GamePageContent() {
               {showFullGameScreen && (
                 <button
                   onClick={handlePlay}
-                  disabled={isFinished}
-                  className="absolute z-10 flex touch-manipulation items-center justify-center rounded-full border-2 border-white bg-transparent text-white transition-all hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="absolute z-10 flex touch-manipulation items-center justify-center rounded-full border-2 border-white bg-transparent text-white transition-all hover:bg-white/20"
                   style={{
                     bottom: '18.1%',
                     left: '25%',
@@ -1803,7 +1873,7 @@ function GamePageContent() {
       </AnimatePresence>
 
       {/* Progress Bar - Full width at bottom of screen */}
-      {showGameScreen && isPlaying && (
+      {showGameScreen && showFullGameScreen && (isPlaying || playbackProgress > 0) && (
         <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-700 z-30">
           <div 
             className="h-full bg-white transition-all duration-100"
