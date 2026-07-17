@@ -17,6 +17,10 @@ export class AudioManager {
   private isPlaying: boolean = false;
   private playbackStartTime: number = 0;
   private currentBuffer: AudioBuffer | null = null;
+  private currentKey: string | null = null;
+  private pausedKey: string | null = null;
+  private pausedOffset: number = 0;
+  private stoppedSources: WeakSet<AudioBufferSourceNode> = new WeakSet();
   private volumeGain: number = 1.5; // 50% louder (1.0 = normal, 1.5 = 50% increase)
   private onEndedCallback: (() => void) | null = null;
   private loadingPromises: Map<string, Promise<void>> = new Map();
@@ -147,16 +151,16 @@ export class AudioManager {
     if (!this.audioContext) {
       throw new Error('AudioContext not initialized');
     }
-    
-    // Stop current playback
-    this.stop();
-    
+
     const key = `${songId}-level${level}`;
     const buffer = this.buffers.get(key);
     
     if (!buffer) {
       throw new Error(`Audio buffer for ${key} not found. Preload first.`);
     }
+
+    const startOffset = this.pausedKey === key ? this.pausedOffset : 0;
+    this.stopSource(false);
     
     // Create source node
     const source = this.audioContext.createBufferSource();
@@ -176,37 +180,81 @@ export class AudioManager {
     
     // Handle playback end
     source.onended = () => {
+      if (this.stoppedSources.has(source)) {
+        this.stoppedSources.delete(source);
+        return;
+      }
+
+      if (source !== this.currentSource) {
+        return;
+      }
+
       this.isPlaying = false;
+      this.currentSource = null;
       this.currentGainNode = null;
-      // Call callback if set
+      this.currentKey = null;
+      this.currentBuffer = null;
+      this.playbackStartTime = 0;
+
+      this.pausedKey = null;
+      this.pausedOffset = 0;
       if (this.onEndedCallback) {
         this.onEndedCallback();
       }
     };
     
     // Start playback
-    source.start(0);
+    source.start(0, Math.min(startOffset, buffer.duration));
     this.currentBuffer = buffer;
-    this.playbackStartTime = this.audioContext.currentTime;
+    this.currentKey = key;
+    this.playbackStartTime = this.audioContext.currentTime - startOffset;
     this.isPlaying = true;
+    this.pausedKey = null;
+    this.pausedOffset = 0;
+  }
+
+  /**
+   * Pause current playback while preserving position for resume.
+   */
+  pause(): void {
+    if (!this.currentSource || !this.audioContext || !this.currentBuffer || !this.currentKey) {
+      return;
+    }
+
+    const elapsed = this.audioContext.currentTime - this.playbackStartTime;
+    this.pausedOffset = Math.min(Math.max(elapsed, 0), this.currentBuffer.duration);
+    this.pausedKey = this.currentKey;
+    this.stopSource(false);
   }
   
   /**
    * Stop current playback
    */
   stop(): void {
+    this.stopSource(true);
+  }
+
+  private stopSource(resetPausedPosition: boolean): void {
     if (this.currentSource) {
+      const source = this.currentSource;
+      this.currentSource = null;
       try {
-        this.currentSource.stop();
+        this.stoppedSources.add(source);
+        source.stop();
       } catch (e) {
         // Already stopped
       }
-      this.currentSource = null;
     }
     this.currentGainNode = null;
     this.isPlaying = false;
     this.playbackStartTime = 0;
     this.currentBuffer = null;
+    this.currentKey = null;
+
+    if (resetPausedPosition) {
+      this.pausedKey = null;
+      this.pausedOffset = 0;
+    }
   }
   
   /**
@@ -234,6 +282,13 @@ export class AudioManager {
    */
   getIsPlaying(): boolean {
     return this.isPlaying;
+  }
+
+  /**
+   * Check if playback is paused with a saved resume position.
+   */
+  getIsPaused(): boolean {
+    return Boolean(this.pausedKey && this.pausedOffset > 0);
   }
 
   /**
