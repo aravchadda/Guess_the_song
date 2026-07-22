@@ -54,6 +54,14 @@ describe('fuzzyMatch', () => {
   });
   
   describe('non-matches', () => {
+    it('should not match a different song by the same artist', () => {
+      expect(fuzzyMatch(
+        'Manchild - Sabrina Carpenter',
+        'Taste',
+        'Sabrina Carpenter'
+      )).toBe(false);
+    });
+
     it('should not match completely different songs', () => {
       expect(fuzzyMatch('Africa', 'Bohemian Rhapsody', 'Queen')).toBe(false);
     });
@@ -104,4 +112,3 @@ describe('fuzzyMatch', () => {
     });
   });
 });
-

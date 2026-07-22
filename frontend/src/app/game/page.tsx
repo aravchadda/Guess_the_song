@@ -192,6 +192,7 @@ function GamePageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [guess, setGuess] = useState('');
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -207,11 +208,32 @@ function GamePageContent() {
   const [lastPointsAwarded, setLastPointsAwarded] = useState<number | null>(null);
   const [leaderboardRefreshKey, setLeaderboardRefreshKey] = useState(0);
   const lastAvailableLevel = Math.max(...availableLevels);
+  const missingLevelNames = [
+    { level: 1, name: 'drums' },
+    { level: 2, name: 'instruments' },
+    { level: 3, name: 'vocals' }
+  ].filter(({ level }) => !availableLevels.includes(level)).map(({ name }) => name);
   const canRevealSong = Boolean(playId && song && !isFinished && currentLevel === lastAvailableLevel);
   
   const audioManager = useRef(getAudioManager());
   const searchTimeout = useRef<NodeJS.Timeout>();
+  const searchRequestId = useRef(0);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const routeCategoryStartedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const closeSuggestionsOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (searchContainerRef.current?.contains(target)) return;
+
+      searchRequestId.current += 1;
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+      setShowSuggestions(false);
+    };
+
+    document.addEventListener('pointerdown', closeSuggestionsOutside);
+    return () => document.removeEventListener('pointerdown', closeSuggestionsOutside);
+  }, []);
 
   useEffect(() => {
     if (isAuthLoading || token || !routeCategoryFilter || !showGameScreen) return;
@@ -326,19 +348,21 @@ function GamePageContent() {
     }
   }, [gameMode]);
 
-  const handleGuess = async (guessText?: string) => {
+  const handleGuess = async (guessText?: string, suggestionId?: string) => {
     const finalGuess = guessText || guess;
+    const finalSongId = suggestionId || selectedSongId;
     
     // Validation checks
-    if (!playId || !song || !finalGuess.trim() || isFinished) return;
+    if (!playId || !song || !finalGuess.trim() || !finalSongId || isFinished) return;
     if (lastGuessedLevel === currentLevel) return; // Already guessed on this level
     
     try {
-      const response = await submitGuess(playId, finalGuess.trim(), currentLevel);
+      const response = await submitGuess(playId, finalGuess.trim(), currentLevel, finalSongId);
       
       // Mark that we've guessed on this level
       setLastGuessedLevel(currentLevel);
       setGuess('');
+      setSelectedSongId(null);
       setShowSuggestions(false);
       
       if (response.correct) {
@@ -449,6 +473,8 @@ function GamePageContent() {
 
   const handleSearchChange = async (value: string) => {
     setGuess(value);
+    setSelectedSongId(null);
+    const requestId = ++searchRequestId.current;
     
     if (value.length < 2) {
       setSearchResults([]);
@@ -464,6 +490,7 @@ function GamePageContent() {
     searchTimeout.current = setTimeout(async () => {
       try {
         const results = await searchSongs(value);
+        if (requestId !== searchRequestId.current) return;
         setSearchResults(results);
         setShowSuggestions(results.length > 0);
       } catch (error) {
@@ -472,10 +499,11 @@ function GamePageContent() {
     }, 300);
   };
 
-  const handleSuggestionClick = (hint: string) => {
-    setGuess(hint);
+  const handleSuggestionClick = (result: SearchResult) => {
+    setGuess(result.hint);
+    setSelectedSongId(result.id);
     setShowSuggestions(false);
-    handleGuess(hint);
+    handleGuess(result.hint, result.id);
   };
 
   const handleNext = () => {
@@ -487,6 +515,7 @@ function GamePageContent() {
     setCurrentLevel(1);
     setIsPlaying(false);
     setGuess('');
+    setSelectedSongId(null);
     setMessage('');
     setIsCorrect(false);
     setIsFinished(false);
@@ -924,6 +953,7 @@ function GamePageContent() {
       stopVideoSequence();
       setMessage('');
       setGuess('');
+      setSelectedSongId(null);
       setShowSuggestions(false);
       setIsLoading(true);
 
@@ -1107,6 +1137,7 @@ function GamePageContent() {
     setIsPlaying(false);
     setPlaybackProgress(0);
     setGuess('');
+    setSelectedSongId(null);
     setMessage('');
     setIsCorrect(false);
     setIsFinished(false);
@@ -2002,14 +2033,14 @@ function GamePageContent() {
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Search bar at top of screen */}
               {!isFinished && !isCorrect && (
-                <div className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-30 pointer-events-auto">
+                <div ref={searchContainerRef} className="fixed top-3 sm:top-4 md:top-8 left-1/2 transform -translate-x-1/2 w-full max-w-[min(42rem,calc(100vw-2rem))] max-[900px]:max-w-[52vw] max-[700px]:max-w-[48vw] [@media_(max-width:900px)_and_(max-height:500px)]:top-2 [@media_(max-width:900px)_and_(max-height:500px)]:max-w-[58vw] [@media_(max-width:700px)_and_(orientation:portrait)]:top-16 [@media_(max-width:700px)_and_(orientation:portrait)]:max-w-[94vw] px-4 z-30 pointer-events-auto">
                     <div className="relative overflow-visible rounded-lg border-2 border-[#6f7a8d] bg-[#111820]/90 shadow-[0_12px_28px_rgba(0,0,0,0.45),inset_0_0_20px_rgba(255,255,255,0.04)] backdrop-blur-sm">
                       <div className="absolute inset-0 pointer-events-none rounded-md opacity-20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.14),transparent_24%),linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px)] bg-[length:100%_100%,100%_5px]" />
                       <input
                         type="text"
                         value={guess}
                         onChange={(e) => handleSearchChange(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
+                        onKeyDown={(e) => e.key === 'Enter' && selectedSongId && handleGuess()}
                         placeholder="Type your guess..."
                         className="relative w-full rounded-md border-0 bg-transparent py-2 pl-3 pr-[5.25rem] sm:py-3 sm:pl-4 sm:pr-28 [@media_(max-width:900px)_and_(max-height:500px)]:py-1.5 [@media_(max-width:700px)_and_(orientation:portrait)]:py-2.5 text-base font-semibold text-[#f4f4f4] placeholder:text-[#9aa3b2] outline-none focus:ring-2 focus:ring-white/35 disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isFinished || lastGuessedLevel === currentLevel}
@@ -2017,7 +2048,7 @@ function GamePageContent() {
                       <button
                         type="button"
                         onClick={() => handleGuess()}
-                        disabled={isFinished || lastGuessedLevel === currentLevel || !guess.trim()}
+                        disabled={isFinished || lastGuessedLevel === currentLevel || !selectedSongId}
                         className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-md border border-white/80 px-2.5 py-1 text-[9px] font-bold uppercase leading-none text-white transition hover:bg-white hover:text-[#111820] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-white sm:right-2 sm:px-3 sm:py-1.5 sm:text-[10px] md:text-xs"
                       >
                         Submit
@@ -2029,7 +2060,7 @@ function GamePageContent() {
                           {searchResults.map((result) => (
                             <button
                               key={result.id}
-                              onClick={() => handleSuggestionClick(result.hint)}
+                              onClick={() => handleSuggestionClick(result)}
                               className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-[#e8ebf0] transition-colors hover:bg-white hover:text-[#0b0e0f] focus:bg-white focus:text-[#0b0e0f] focus:outline-none"
                             >
                               {result.hint}
@@ -2122,7 +2153,7 @@ function GamePageContent() {
                     { level: 1, name: 'Drums', points: levelPointLabels[1] },
                     { level: 2, name: 'Instruments', points: levelPointLabels[2] },
                     { level: 3, name: 'Vocals', points: levelPointLabels[3] }
-                  ].map(({ level, name, points }) => {
+                  ].filter(({ level }) => availableLevels.includes(level)).map(({ level, name, points }) => {
                     // Is this stem currently audible in the mix?
                     const isActive =
                       currentLevel === 1 && level === 1 || // Drums: only drums audible
@@ -2167,6 +2198,22 @@ function GamePageContent() {
                   );
                 })()}
 
+                {totalPoints !== null && (
+                  <div className="text-left text-white">
+                    <p className="text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-60 font-semibold">
+                      Your points
+                    </p>
+                    <p className="text-base sm:text-xl md:text-2xl font-bold">
+                      {totalPoints}
+                      {lastPointsAwarded ? (
+                        <span className="text-green-400 text-xs sm:text-sm font-semibold ml-2">
+                          +{lastPointsAwarded}
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
+                )}
+
                 {canRevealSong && (
                   <div className="flex flex-col items-start gap-1">
                     <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px]">Still stuck?</p>
@@ -2182,23 +2229,8 @@ function GamePageContent() {
                 )}
               </div>
 
-              {/* Right side - Points + Leaderboard */}
+              {/* Right side - Leaderboard */}
               <div className="absolute right-2 sm:right-4 md:right-6 lg:right-8 max-[900px]:!right-2 top-1/2 transform -translate-y-1/2 [@media_(max-width:900px)_and_(max-height:500px)]:hidden [@media_(max-width:700px)_and_(orientation:portrait)]:hidden flex flex-col items-stretch gap-1.5 sm:gap-2 md:gap-3 max-[900px]:!gap-1.5 px-1 sm:px-2 md:px-6 lg:px-8 max-[900px]:!px-1 z-10 w-36 sm:w-44 md:w-64 lg:w-72 max-[900px]:!w-40 pointer-events-auto">
-                {totalPoints !== null && (
-                  <div className="text-right">
-                    <p className="text-white text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-60 font-semibold">
-                      Your points
-                    </p>
-                    <p className="text-white text-base sm:text-xl md:text-2xl font-bold">
-                      {totalPoints}
-                      {lastPointsAwarded ? (
-                        <span className="text-green-400 text-xs sm:text-sm font-semibold ml-2">
-                          +{lastPointsAwarded}
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
-                )}
                 <Leaderboard refreshKey={leaderboardRefreshKey} />
               </div>
 
@@ -2233,7 +2265,7 @@ function GamePageContent() {
                       { level: 1, name: 'Drums', points: levelPointLabels[1] },
                       { level: 2, name: 'Instruments', points: levelPointLabels[2] },
                       { level: 3, name: 'Vocals', points: levelPointLabels[3] }
-                    ].map(({ level, name, points }) => {
+                    ].filter(({ level }) => availableLevels.includes(level)).map(({ level, name, points }) => {
                       const isActive =
                         currentLevel === 1 && level === 1 ||
                         currentLevel === 2 && level <= 2 ||
@@ -2298,6 +2330,12 @@ function GamePageContent() {
                   </div>
                 )}
               </div>
+
+              {missingLevelNames.length > 0 && (
+                <p className="fixed bottom-2 left-1/2 z-20 -translate-x-1/2 px-3 text-center text-[9px] text-white/50 sm:text-[10px]">
+                  (Sorry, {missingLevelNames.join(' and ')} {missingLevelNames.length === 1 ? 'is' : 'are'} not available.)
+                </p>
+              )}
 
               
               {/* Correct text on right side */}

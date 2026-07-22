@@ -57,8 +57,12 @@ export function fuzzyMatch(
   }
   
   // Strategy 2: Check if guess contains artist name
-  const artistList = normalizedArtists.split(/,|and/).map(a => a.trim());
-  for (const artist of artistList) {
+  const artistList = normalizedArtists.split(/,|and/).map(a => a.trim()).filter(Boolean);
+  const artistAliases = artistList.flatMap(artist => {
+    const withoutLeadingThe = artist.replace(/^the\s+/, '');
+    return withoutLeadingThe === artist ? [artist] : [artist, withoutLeadingThe];
+  });
+  for (const artist of artistAliases) {
     if (artist && (normalizedGuess.includes(artist) || artist.includes(normalizedGuess))) {
       // If artist is mentioned, check if song name is also somewhat present
       const tokenOverlap = calculateTokenOverlap(normalizedGuess, normalizedSongName);
@@ -66,17 +70,30 @@ export function fuzzyMatch(
     }
   }
   
-  // Strategy 3: Levenshtein similarity for song name
-  const songSimilarity = stringSimilarity.compareTwoStrings(normalizedGuess, normalizedSongName);
+  // Remove a supplied artist from "song - artist" style guesses before fuzzy
+  // title matching. Otherwise two different songs by the same artist can look
+  // deceptively similar because the shared artist text dominates the score.
+  const titleGuess = artistAliases.reduce(
+    (candidate, artist) => candidate.replace(artist, ' ').replace(/\s+/g, ' ').trim(),
+    normalizedGuess
+  );
+
+  // Re-run containment on the extracted title so guesses such as
+  // "Imagine - John Lennon" still match decorated catalog titles such as
+  // "Imagine (Ultimate Mix)".
+  if (titleGuess && (
+    titleGuess.includes(normalizedSongName) || normalizedSongName.includes(titleGuess)
+  )) {
+    return true;
+  }
+
+  // Strategy 3: Fuzzy similarity for the song title
+  const songSimilarity = stringSimilarity.compareTwoStrings(titleGuess, normalizedSongName);
   if (songSimilarity >= threshold) return true;
-  
-  // Strategy 4: Check similarity with combined "song by artist" format
-  const combined = `${normalizedSongName} ${normalizedArtists}`;
-  const combinedSimilarity = stringSimilarity.compareTwoStrings(normalizedGuess, combined);
-  if (combinedSimilarity >= threshold - 0.1) return true;
-  
-  // Strategy 5: Token overlap as fallback
-  const tokenOverlap = calculateTokenOverlap(normalizedGuess, `${normalizedSongName} ${normalizedArtists}`);
+
+  // Strategy 4: Title-token overlap as fallback. Artist tokens are excluded so
+  // choosing another song by the same artist cannot be accepted.
+  const tokenOverlap = calculateTokenOverlap(titleGuess, normalizedSongName);
   if (tokenOverlap >= 0.6) return true;
   
   return false;
@@ -96,4 +113,3 @@ export function getMatchScore(guess: string, songName: string, artists: string):
   
   return Math.max(songSimilarity, combinedSimilarity);
 }
-

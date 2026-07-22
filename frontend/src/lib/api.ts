@@ -197,11 +197,16 @@ export async function startPlay(mode: 'random' | 'decade', minYear?: number, fil
 /**
  * Submit a guess
  */
-export async function submitGuess(playId: string, guess: string, level?: number): Promise<GuessResponse> {
+export async function submitGuess(
+  playId: string,
+  guess: string,
+  level?: number,
+  selectedSongId?: string
+): Promise<GuessResponse> {
   const response = await fetch(`${API_URL}/api/songs/${playId}/guess`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ guess, level }),
+    body: JSON.stringify({ guess, level, selectedSongId }),
   });
 
   if (!response.ok) {
