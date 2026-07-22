@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import Song, { GENRES } from '../models/Song';
 import User from '../models/User';
-import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { formatViewCount } from '../utils/viewCountFormatter';
+import { getAvailableAudioLevels } from '../utils/audioAvailability';
 import { optionalAuth, AuthedRequest } from '../middleware/auth';
 
 const router = Router();
@@ -224,16 +224,32 @@ router.post('/random', async (req: AuthedRequest, res: Response) => {
     }
 
     const randomIndex = Math.floor(Math.random() * count);
-    const song = await Song.findOne(query).skip(randomIndex);
+    let song = null;
+    let availableLevels: number[] = [];
+
+    // Start at a random point and walk the candidate pool once. Songs with no
+    // playable files are skipped instead of returning a broken round.
+    for (let offset = 0; offset < count; offset++) {
+      const candidate = await Song.findOne(query).skip((randomIndex + offset) % count);
+      if (!candidate) continue;
+
+      const candidateLevels = getAvailableAudioLevels(candidate.preprocessed);
+      if (candidateLevels.length > 0) {
+        song = candidate;
+        availableLevels = candidateLevels;
+        break;
+      }
+    }
+
     if (!song) {
-      return res.status(404).json({ error: 'No songs found for the selected criteria' });
+      return res.status(404).json({ error: 'No songs with playable audio found for the selected criteria' });
     }
 
     res.json({
       playId: makePlayId(song._id, scoreProfile),
       scoreProfile,
-      availableLevels: [1, 2, 3],
-      currentLevel: 1,
+      availableLevels,
+      currentLevel: availableLevels[0],
       song: {
         id: song._id,
         release_year: song.release_year,
@@ -260,11 +276,15 @@ router.post('/random', async (req: AuthedRequest, res: Response) => {
 router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { guess, level } = req.body;
+    const { guess, level, selectedSongId } = req.body;
     const { songId, scoreProfile } = parsePlayId(id);
 
     if (!guess || typeof guess !== 'string') {
       return res.status(400).json({ error: 'Guess is required and must be a string' });
+    }
+
+    if (!selectedSongId || typeof selectedSongId !== 'string') {
+      return res.status(400).json({ error: 'Please select a song from the autocomplete options' });
     }
 
     const guessLevel = level !== undefined ? parseInt(level) : 1;
@@ -277,8 +297,8 @@ router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
       return res.status(404).json({ error: 'Song not found' });
     }
 
-    const threshold = parseFloat(process.env.MATCH_THRESHOLD || '0.72');
-    const isCorrect = fuzzyMatch(guess, song.name, song.artists, threshold);
+    // Autocomplete selections carry the database ID and match exactly.
+    const isCorrect = selectedSongId === String(song._id);
 
     if (isCorrect) {
       const pointsTable = scoreProfile === 'reduced' ? REDUCED_LEVEL_POINTS : LEVEL_POINTS;
@@ -312,7 +332,9 @@ router.post('/:id/guess', async (req: AuthedRequest, res: Response) => {
     }
 
     // Wrong guess
-    if (guessLevel === 3) {
+    const availableLevels = getAvailableAudioLevels(song.preprocessed);
+    const lastAvailableLevel = Math.max(...availableLevels);
+    if (guessLevel === lastAvailableLevel) {
       // Wrong on the last level (full mix) - game over
       const user = req.userId
         ? await User.findByIdAndUpdate(
@@ -387,6 +409,7 @@ router.post('/:id/reveal', async (req: AuthedRequest, res: Response) => {
  */
 router.post('/:id/skip', async (req: AuthedRequest, res: Response) => {
   try {
+    const { songId } = parsePlayId(req.params.id);
     const { currentLevel } = req.body;
     const level = currentLevel !== undefined ? parseInt(currentLevel) : 1;
 
@@ -394,11 +417,18 @@ router.post('/:id/skip', async (req: AuthedRequest, res: Response) => {
       return res.status(400).json({ error: 'currentLevel must be between 1 and 3' });
     }
 
-    if (level >= 3) {
+    const song = await Song.findById(songId);
+    if (!song) {
+      return res.status(404).json({ error: 'Song not found' });
+    }
+
+    const nextLevel = getAvailableAudioLevels(song.preprocessed)
+      .filter((availableLevel) => availableLevel > level)[0];
+    if (nextLevel === undefined) {
       return res.status(400).json({ error: 'Already on the last level' });
     }
 
-    res.json({ currentLevel: level + 1 });
+    res.json({ currentLevel: nextLevel });
   } catch (error) {
     console.error('Error skipping:', error);
     res.status(500).json({ error: 'Internal server error' });
