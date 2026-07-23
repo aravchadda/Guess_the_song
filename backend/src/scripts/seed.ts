@@ -106,9 +106,10 @@ async function seedDatabase() {
 
     console.log(`📊 Found ${rows.length} songs in CSV\n`);
 
-    const preprocessedDir = path.join(__dirname, '../../preprocessed');
+    const preprocessedDir = process.env.AUDIO_PATH || path.join(__dirname, '../../preprocessed');
     const songsData: SongData[] = [];
-    const missingAudio: string[] = [];
+    const partialAudio: Array<{ id: string; missingLevels: string[] }> = [];
+    const missingAllAudio: string[] = [];
 
     for (const row of rows) {
       const id = row.ID.trim();
@@ -120,16 +121,21 @@ async function seedDatabase() {
       const genre = resolveGenre(row.Genre, id);
       const preprocessed = generatePreprocessedPaths(id);
 
-      // Verify all three levels actually exist on disk before seeding this
-      // song - catches a mismatched/incomplete preprocessed/ folder early
-      // rather than shipping a song that 404s in the game.
+      // Keep songs with at least one playable level. The game API detects the
+      // available files at runtime, starts at the first one, and hides any
+      // missing level indicators.
       const songDir = path.join(preprocessedDir, id);
-      const allLevelsExist = ['level1.mp3', 'level2.mp3', 'level3.mp3'].every((f) =>
-        fs.existsSync(path.join(songDir, f))
-      );
-      if (!allLevelsExist) {
-        missingAudio.push(id);
+      const levelFiles = ['level1.mp3', 'level2.mp3', 'level3.mp3'];
+      const availableLevelFiles = levelFiles.filter((file) => fs.existsSync(path.join(songDir, file)));
+      if (availableLevelFiles.length === 0) {
+        missingAllAudio.push(id);
         continue;
+      }
+      if (availableLevelFiles.length < levelFiles.length) {
+        partialAudio.push({
+          id,
+          missingLevels: levelFiles.filter((file) => !availableLevelFiles.includes(file))
+        });
       }
 
       songsData.push({
@@ -144,8 +150,15 @@ async function seedDatabase() {
       });
     }
 
-    if (missingAudio.length > 0) {
-      console.warn(`⚠️  Skipping ${missingAudio.length} songs missing audio on disk: ${missingAudio.slice(0, 10).join(', ')}${missingAudio.length > 10 ? ', ...' : ''}\n`);
+    if (partialAudio.length > 0) {
+      const examples = partialAudio
+        .slice(0, 10)
+        .map(({ id, missingLevels }) => `${id} (${missingLevels.join(', ')})`)
+        .join('; ');
+      console.warn(`⚠️  Including ${partialAudio.length} songs with partial audio. Missing files: ${examples}${partialAudio.length > 10 ? '; ...' : ''}\n`);
+    }
+    if (missingAllAudio.length > 0) {
+      console.warn(`⚠️  Skipping ${missingAllAudio.length} songs with no audio on disk: ${missingAllAudio.slice(0, 10).join(', ')}${missingAllAudio.length > 10 ? ', ...' : ''}\n`);
     }
 
     // Clear existing songs (this is a full re-seed, not an incremental upsert)
@@ -177,7 +190,8 @@ async function seedDatabase() {
     console.log('✅ Database seeding complete!');
     console.log(`   Inserted: ${insertedCount} songs`);
     console.log(`   Failed: ${failedCount} songs`);
-    console.log(`   Skipped (missing audio): ${missingAudio.length} songs`);
+    console.log(`   Included with partial audio: ${partialAudio.length} songs`);
+    console.log(`   Skipped (no audio): ${missingAllAudio.length} songs`);
     console.log('='.repeat(60));
 
     const totalSongs = await Song.countDocuments();

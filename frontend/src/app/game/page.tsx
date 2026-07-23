@@ -2198,6 +2198,20 @@ function GamePageContent() {
                   );
                 })()}
 
+                {canRevealSong && (
+                  <div className="flex flex-col items-start gap-1">
+                    <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px]">Still stuck?</p>
+                    <button
+                      type="button"
+                      onClick={handleRevealSong}
+                      disabled={isRevealingSong}
+                      className="px-2 py-1 md:px-3 md:py-1.5 max-[900px]:!px-2 max-[900px]:!py-1 rounded-lg font-semibold text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px] border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 disabled:cursor-not-allowed disabled:opacity-40 whitespace-nowrap pointer-events-auto"
+                    >
+                      {isRevealingSong ? 'Revealing...' : 'Reveal Song'}
+                    </button>
+                  </div>
+                )}
+
                 {totalPoints !== null && (
                   <div className="text-left text-white">
                     <p className="text-[8px] sm:text-[10px] md:text-xs uppercase tracking-widest opacity-60 font-semibold">
@@ -2211,20 +2225,6 @@ function GamePageContent() {
                         </span>
                       ) : null}
                     </p>
-                  </div>
-                )}
-
-                {canRevealSong && (
-                  <div className="flex flex-col items-start gap-1">
-                    <p className="text-gray-400 text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px]">Still stuck?</p>
-                    <button
-                      type="button"
-                      onClick={handleRevealSong}
-                      disabled={isRevealingSong}
-                      className="px-2 py-1 md:px-3 md:py-1.5 max-[900px]:!px-2 max-[900px]:!py-1 rounded-lg font-semibold text-[10px] sm:text-xs md:text-sm max-[900px]:!text-[10px] border-2 border-white text-white bg-transparent transition-all opacity-100 hover:opacity-60 disabled:cursor-not-allowed disabled:opacity-40 whitespace-nowrap pointer-events-auto"
-                    >
-                      {isRevealingSong ? 'Revealing...' : 'Reveal Song'}
-                    </button>
                   </div>
                 )}
               </div>

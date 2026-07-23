@@ -195,7 +195,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0194,Greatest Love Of All,Whitney Houston,1986,20,1,https://www.youtube.com/watch?v=IYzlVDlE72w,414000000.0,R&B
 0195,Heartbreaker,Mariah Carey Featuring Jay-Z,1999,20,1,https://www.youtube.com/watch?v=kMCGvtlL4fw,86000000.0,Pop
 0196,Honey,Mariah Carey,1997,20,1,https://www.youtube.com/watch?v=w3KOowB4k_k,56000000.0,Pop
-0197,Human,The Human League,1986,20,1,https://www.youtube.com/watch?v=uPudE8nDog0,254000000.0,Rock
+0197,Human,The Human League,1986,20,1,https://www.youtube.com/watch?v=s1ysoohV_zA,254000000.0,Rock
 0198,Hypnotize,The Notorious B.I.G.,1997,20,1,https://www.youtube.com/watch?v=k1qpgQr8wXk,171000000.0,Hip-Hop
 0199,I Don't Want To Miss A Thing,Aerosmith,1998,20,1,https://www.youtube.com/watch?v=JkK8g6FMEXE,763000000.0,Rock
 0200,I Wanna Dance With Somebody (Who Loves Me),Whitney Houston,1987,20,1,https://www.youtube.com/watch?v=eH3giaIzONA,565000000.0,R&B
@@ -239,7 +239,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0238,Papa Don't Preach,Madonna,1986,18,1,https://www.youtube.com/watch?v=G333Is7VPOg,265000000.0,Pop
 0239,The Way You Make Me Feel,Michael Jackson,1987,18,1,https://www.youtube.com/watch?v=HzZ_urpj4As,559000000.0,Pop
 0240,Together Forever,Rick Astley,1988,18,1,https://www.youtube.com/watch?v=yPYZpwSpKmA,203000000.0,Pop
-0241,We Are The World,USA For Africa,1985,18,1,https://www.youtube.com/watch?v=Glny4jSciVI,379000000.0,Pop
+0241,We Are The World,USA For Africa,1985,18,1,https://www.youtube.com/watch?v=182f6dTagkU,379000000.0,Pop
 0242,Where Do Broken Hearts Go,Whitney Houston,1988,18,1,https://www.youtube.com/watch?v=wa3tfVjGCQ8,113000000.0,R&B
 0243,With Or Without You,U2,1987,18,1,https://www.youtube.com/watch?v=6DeDzsCGbsQ,439000000.0,Rock
 0244,Father Figure,George Michael,1988,17,1,https://www.youtube.com/watch?v=m_9hfHvQSNo,182000000.0,Pop
@@ -275,7 +275,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0274,If I Ever Fall In Love,Shai,1992,27,2,https://www.youtube.com/watch?v=caNRc1ER8p4,138000000.0,R&B
 0275,"Nuthin' But A ""G"" Thang",Dr. Dre,1993,27,2,https://www.youtube.com/watch?v=Ne_hVxwEGCg,67000000.0,Hip-Hop
 0276,Queen Of Hearts,Juice Newton,1981,27,2,https://www.youtube.com/watch?v=P0DK-0fIKCw,109000000.0,Pop
-0277,Girl You Know It's True,Milli Vanilli,1989,26,2,https://www.youtube.com/watch?v=ZbUENJ5FjBk,294000000.0,Pop
+0277,Girl You Know It's True,Milli Vanilli,1989,26,2,https://www.youtube.com/watch?v=RdSmokR0Enk,294000000.0,Pop
 0278,Tears In Heaven,Eric Clapton,1992,26,2,https://www.youtube.com/watch?v=UprwkbzUX6g,215000000.0,Rock
 0279,Under The Bridge,Red Hot Chili Peppers,1992,26,2,https://www.youtube.com/watch?v=GLvohMXgcBo,349000000.0,Rock
 0280,Candy Rain,Soul For Real,1995,25,2,https://www.youtube.com/watch?v=Cx0xzO73Amo,220000000.0,R&B
@@ -363,7 +363,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0362,The Hills,The Weeknd,2015,48,1,https://www.youtube.com/watch?v=yzTuBuRdAyA,2305000000.0,Pop
 0363,All About That Bass,Meghan Trainor,2014,47,1,https://www.youtube.com/watch?v=7PCkvCPvDXk,2708000000.0,Pop
 0364,Happy,Pharrell Williams,2014,47,1,https://www.youtube.com/watch?v=ZbZSe6N_BXs,1549000000.0,Pop
-0365,Luther,Kendrick Lamar & SZA,2024,47,1,https://www.youtube.com/watch?v=JQbjS0_ZfJ0,714000000.0,Hip-Hop
+0365,Luther,Kendrick Lamar & SZA,2024,47,1,https://www.youtube.com/watch?v=sNY_2TEmzho,714000000.0,Hip-Hop
 0366,Sucker,Jonas Brothers,2019,47,1,https://www.youtube.com/watch?v=CnAmeh0-E-U,425000000.0,Pop
 0367,With Arms Wide Open,Creed,2000,47,1,https://www.youtube.com/watch?v=99j0zLuNhi8,213000000.0,Rock
 0368,Yeah!,Usher Featuring Lil Jon & Ludacris,2004,47,1,https://www.youtube.com/watch?v=GxBSyx85Kp8,1254000000.0,R&B
@@ -379,7 +379,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0378,Industry Baby,Lil Nas X & Jack Harlow,2021,42,1,https://www.youtube.com/watch?v=UTHLKHL_whs,523000000.0,Hip-Hop
 0379,One More Night,Maroon 5,2012,42,1,https://www.youtube.com/watch?v=fwK7ggA3-bU,1242000000.0,Pop
 0380,Rockstar,DaBaby Featuring Roddy Ricch,2020,42,1,https://www.youtube.com/watch?v=83xBPCw5hh4,452000000.0,Hip-Hop
-0381,Sexy And I Know It,LMFAO,2011,42,1,https://www.youtube.com/watch?v=KQ6zr6kCPj8,2568000000.0,Pop
+0381,Sexy And I Know It,LMFAO,2011,42,1,https://www.youtube.com/watch?v=wyx6JDQCslE,2568000000.0,Pop
 0382,Sorry,Justin Bieber,2015,42,1,https://www.youtube.com/watch?v=fRh_vgS2dFE,4127000000.0,Pop
 0383,Truth Hurts,Lizzo,2019,42,1,https://www.youtube.com/watch?v=P00HMxdsVZI,333000000.0,R&B
 0384,We Are Young,fun. Featuring Janelle Monae,2011,42,1,https://www.youtube.com/watch?v=Sv6dMFF_yts,1342000000.0,Pop
@@ -537,7 +537,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0536,Butterfly,Crazy Town,2001,23,1,https://www.youtube.com/watch?v=6FEDrU85FLE,313000000.0,Rock
 0537,Candy Shop,50 Cent Featuring Olivia,2005,23,1,https://www.youtube.com/watch?v=SRcnnId15BA,1156000000.0,Hip-Hop
 0538,Don't Matter,Akon,2007,23,1,https://www.youtube.com/watch?v=JWA5hJl4Dv0,843000000.0,R&B
-0539,Heartless,The Weeknd,2019,23,1,https://www.youtube.com/watch?v=Co0tTeuUVhU,254000000.0,Pop
+0539,Heartless,The Weeknd,2019,23,1,https://www.youtube.com/watch?v=1DpH-icPpl0,254000000.0,Pop
 0540,I Kissed A Girl,Katy Perry,2008,23,1,https://www.youtube.com/watch?v=tAp9BKosZXs,335000000.0,Pop
 0541,Lose You To Love Me,Selena Gomez,2019,23,1,https://www.youtube.com/watch?v=zlJDTxahav0,531000000.0,Pop
 0542,Ms. Jackson,OutKast,2000,23,1,https://www.youtube.com/watch?v=MYxAiK6VnXw,422000000.0,Hip-Hop
@@ -549,7 +549,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0548,In My Feelings,Drake,2018,22,1,https://www.youtube.com/watch?v=DRS_PpOrUZ4,301000000.0,Hip-Hop
 0549,Part Of Me,Katy Perry,2012,22,1,https://www.youtube.com/watch?v=uuwfgXD8qV8,1007000000.0,Pop
 0550,Rude Boy,Rihanna,2010,22,1,https://www.youtube.com/watch?v=e82VE8UtW8A,733000000.0,Pop
-0551,What's My Name?,Rihanna Featuring Drake,2010,22,1,https://www.youtube.com/watch?v=HL1UzIK-flA,1512000000.0,Pop
+0551,What's My Name?,Rihanna Featuring Drake,2010,22,1,https://www.youtube.com/watch?v=U0CGsw6h60k,1512000000.0,Pop
 0552,All I Have,Jennifer Lopez Featuring LL Cool J,2002,21,1,https://www.youtube.com/watch?v=yeSJ2YdhG5k,359000000.0,Pop
 0553,Fortnight,Taylor Swift Featuring Post Malone,2024,21,1,https://www.youtube.com/watch?v=q3zqJs7JUCQ,177000000.0,Pop
 0554,Born This Way,Lady Gaga,2011,20,1,https://www.youtube.com/watch?v=wV1FrqwZyKw,327000000.0,Pop
@@ -575,7 +575,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0574,Franchise,Travis Scott Featuring Young Thug & M.I.A.,2020,9,1,https://www.youtube.com/watch?v=_VRyoaNF9sk,178000000.0,Hip-Hop
 0575,Permission To Dance,BTS,2021,7,1,https://www.youtube.com/watch?v=CuklIb9d3fI,722000000.0,Pop
 0576,Like Crazy,Jimin,2023,5,1,https://www.youtube.com/watch?v=nOI67IDlNMQ,186000000.0,Pop
-0577,Trollz,6ix9ine & Nicki Minaj,2020,4,1,https://www.youtube.com/watch?v=pPw_izFr5PA,934000000.0,Hip-Hop
+0577,Trollz,6ix9ine & Nicki Minaj,2020,4,1,https://www.youtube.com/watch?v=89C1le6dwZU,934000000.0,Hip-Hop
 0578,Life Goes On,BTS,2020,3,1,https://www.youtube.com/watch?v=-5q5mZbe3V8,600000000.0,Pop
 0579,Beautiful Things,Benson Boone,2024,90,2,https://www.youtube.com/watch?v=Oa_RSwwpPaA,1047000000.0,Pop
 0580,Levitating,Dua Lipa,2020,77,2,https://www.youtube.com/watch?v=TUVcZfQe-Kw,1126000000.0,Pop
@@ -653,10 +653,10 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0652,Crush,David Archuleta,2008,23,2,https://www.youtube.com/watch?v=6J1-eYBbspA,206000000.0,Pop
 0653,Hate It Or Love It,The Game Featuring 50 Cent,2005,23,2,https://www.youtube.com/watch?v=BuMBmK5uksg,444000000.0,Hip-Hop
 0654,I Don't Wanna Live Forever (Fifty Shades Darker),Zayn / Taylor Swift,2016,23,2,https://www.youtube.com/watch?v=7F37r50VUTQ,776000000.0,Pop
-0655,I Need A Girl (Part One),P. Diddy Featuring Usher & Loon,2002,23,2,https://www.youtube.com/watch?v=zGUttrXgzLI,173000000.0,Hip-Hop
+0655,I Need A Girl (Part One),P. Diddy Featuring Usher & Loon,2002,23,2,https://www.youtube.com/watch?v=zXYb1OMhwBA,173000000.0,Hip-Hop
 0656,If I Can't Have You,Shawn Mendes,2019,23,2,https://www.youtube.com/watch?v=oTJ-oqwxdZY,235000000.0,Pop
 0657,Oh,Ciara Featuring Ludacris,2005,23,2,https://www.youtube.com/watch?v=Lp6W4aK1sbs,243000000.0,R&B
-0658,Anaconda,Nicki Minaj,2014,22,2,https://www.youtube.com/watch?v=SXiSVQZLje8,2443000000.0,Hip-Hop
+0658,Anaconda,Nicki Minaj,2014,22,2,https://www.youtube.com/watch?v=LDZX4ooRsWs,2443000000.0,Hip-Hop
 0659,Die Young,Ke$ha,2012,22,2,https://www.youtube.com/watch?v=NOubzHCUt48,215000000.0,Pop
 0660,Best Song Ever,One Direction,2013,21,2,https://www.youtube.com/watch?v=o_v9MY_FMcw,829000000.0,Pop
 0661,Wild Thoughts,DJ Khaled Featuring Rihanna & Bryson Tiller,2017,21,2,https://www.youtube.com/watch?v=fyaI4-5849w,1340000000.0,Hip-Hop
@@ -669,7 +669,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0668,Houdini,Eminem,2024,20,2,https://www.youtube.com/watch?v=22tVWwmTie8,273000000.0,Hip-Hop
 0669,Lift Me Up,Rihanna,2022,20,2,https://www.youtube.com/watch?v=Mx_OexsUI2M,197000000.0,Pop
 0670,ME!,Taylor Swift Featuring Brendon Urie,2019,20,2,https://www.youtube.com/watch?v=FuXNumBwDOM,458000000.0,Pop
-0671,Mesmerize,Ja Rule Featuring Ashanti,2002,20,2,https://www.youtube.com/watch?v=VpvyG2NrS1Y,354000000.0,Hip-Hop
+0671,Mesmerize,Ja Rule Featuring Ashanti,2002,20,2,https://www.youtube.com/watch?v=VcP96KbFIIU,354000000.0,Hip-Hop
 0672,Survivor,Destiny's Child,2001,20,2,https://www.youtube.com/watch?v=Wmc8bQoL-J0,233000000.0,R&B
 0673,Without Me,Eminem,2002,20,2,https://www.youtube.com/watch?v=YVkUvmDQ3HY,2427000000.0,Hip-Hop
 0674,Yummy,Justin Bieber,2020,15,2,https://www.youtube.com/watch?v=8EJ3zbKTWQ8,837000000.0,Pop
@@ -732,7 +732,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0731,Just A Dream,Nelly,2010,28,3,https://www.youtube.com/watch?v=N6O2ncUKvlg,1026000000.0,Hip-Hop
 0732,Thong Song,Sisqo,2000,28,3,https://www.youtube.com/watch?v=Oai1V7kaFBk,196000000.0,R&B
 0733,Day 'N' Nite,Kid Cudi,2009,27,3,https://www.youtube.com/watch?v=5RXnLaKCRqQ,13000000.0,Hip-Hop
-0734,Just A Lil Bit,50 Cent,2005,27,3,https://www.youtube.com/watch?v=SRcnnId15BA,1156000000.0,Hip-Hop
+0734,Just A Lil Bit,50 Cent,2005,27,3,https://www.youtube.com/watch?v=GllEDACUbNo,1156000000.0,Hip-Hop
 0735,Kiss Me Thru The Phone,Soulja Boy Tell 'em Featuring Sammie,2009,27,3,https://www.youtube.com/watch?v=47Fbo4kU2AU,399000000.0,Hip-Hop
 0736,Me & U,Cassie,2006,27,3,https://www.youtube.com/watch?v=zVJ5gsLeCSM,219000000.0,R&B
 0737,No Tears Left To Cry,Ariana Grande,2018,27,3,https://www.youtube.com/watch?v=ffxKSjUwKdU,1316000000.0,Pop
@@ -772,7 +772,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0771,If I Were A Boy,Beyonce,2008,20,3,https://www.youtube.com/watch?v=AWpsOqh8q0M,651000000.0,R&B
 0772,Jenny From The Block,Jennifer Lopez Featuring Styles & Jadakiss,2002,20,3,https://www.youtube.com/watch?v=dly6p4Fu5TE,195000000.0,Pop
 0773,No,Meghan Trainor,2016,20,3,https://www.youtube.com/watch?v=cMTAUr3Nm6I,684000000.0,Pop
-0774,Please Me,Cardi B & Bruno Mars,2019,20,3,https://www.youtube.com/watch?v=LsoLEjrDogU,948000000.0,Hip-Hop
+0774,Please Me,Cardi B & Bruno Mars,2019,20,3,https://www.youtube.com/watch?v=3y-O-4IL-PU,948000000.0,Hip-Hop
 0775,The Bigger Picture,Lil Baby,2020,20,3,https://www.youtube.com/watch?v=_VDGysJGNoI,213000000.0,Hip-Hop
 0776,Popstar,DJ Khaled Featuring Drake,2020,19,3,https://www.youtube.com/watch?v=3CxtK7-XtE0,348000000.0,Hip-Hop
 0777,Beautiful Liar,Beyonce & Shakira,2007,18,3,https://www.youtube.com/watch?v=QrOe2h9RtWI,665000000.0,R&B
@@ -821,7 +821,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0820,iSpy,KYLE Featuring Lil Yachty,2017,30,4,https://www.youtube.com/watch?v=5XK4v2fgMPU,546000000.0,Hip-Hop
 0821,Lips Are Movin,Meghan Trainor,2014,29,4,https://www.youtube.com/watch?v=qDc_5zpBj7s,604000000.0,Pop
 0822,My Sacrifice,Creed,2001,29,4,https://www.youtube.com/watch?v=O-fyNgHdmLI,375000000.0,Rock
-0823,How We Do,The Game Featuring 50 Cent,2004,28,4,https://www.youtube.com/watch?v=BuMBmK5uksg,444000000.0,Hip-Hop
+0823,How We Do,The Game Featuring 50 Cent,2004,28,4,https://www.youtube.com/watch?v=PH34kMOjmQk,444000000.0,Hip-Hop
 0824,Side To Side,Ariana Grande Featuring Nicki Minaj,2016,28,4,https://www.youtube.com/watch?v=SXiSVQZLje8,2443000000.0,Pop
 0825,The Climb,Miley Cyrus,2009,28,4,https://www.youtube.com/watch?v=NG2zyeVRcbs,547000000.0,Pop
 0826,Billionaire,Travie McCoy Featuring Bruno Mars,2010,27,4,https://www.youtube.com/watch?v=8aRor905cCw,673000000.0,Hip-Hop
@@ -863,7 +863,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0862,Your Idol,Saja Boys: Andrew Choi| Neckwav| Danny Chung| Kevin Woo & samUIL Lee,2025,15,4,https://www.youtube.com/watch?v=cWppAbqm9I8,441000000.0,Pop
 0863,California Breeze,Lil Baby,2022,14,4,https://www.youtube.com/watch?v=WyhU6Zb_fhY,200000000.0,Hip-Hop
 0864,Sign Of The Times,Harry Styles,2017,13,4,https://www.youtube.com/watch?v=qN4ooNx77u0,1571000000.0,Pop
-0865,The Tortured Poets Department,Taylor Swift,2024,7,4,https://www.youtube.com/watch?v=q3zqJs7JUCQ,177000000.0,Pop
+0865,The Tortured Poets Department,Taylor Swift,2024,7,4,https://www.youtube.com/watch?v=RQMz4JDbtmI,177000000.0,Pop
 0866,ON,BTS,2020,2,4,https://www.youtube.com/watch?v=gwMa6gpoE9I,683000000.0,Pop
 0867,You And Me,Lifehouse,2005,62,5,https://www.youtube.com/watch?v=ac3HkriqdGQ,217000000.0,Rock
 0868,Drops Of Jupiter (Tell Me),Train,2001,53,5,https://www.youtube.com/watch?v=7Xf-Lesrkuc,384000000.0,Pop
@@ -900,7 +900,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0899,Bad At Love,Halsey,2017,32,5,https://www.youtube.com/watch?v=xdYFuCp3m9k,549000000.0,Pop
 0900,Bring Me To Life,Evanescence Featuring Paul McCoy,2003,32,5,https://www.youtube.com/watch?v=3YxaaGgTQYM,1746000000.0,Rock
 0901,FE!N,Travis Scott Featuring Playboi Carti,2023,32,5,https://www.youtube.com/watch?v=B9synWjqBn8,259000000.0,Hip-Hop
-0902,Panini,Lil Nas X,2019,32,5,https://www.youtube.com/watch?v=6swmTBVI83k,634000000.0,Hip-Hop
+0902,Panini,Lil Nas X,2019,32,5,https://www.youtube.com/watch?v=bXcSLI58-h8,634000000.0,Hip-Hop
 0903,Halo,Beyonce,2009,31,5,https://www.youtube.com/watch?v=bnVUHWCynig,1821000000.0,R&B
 0904,Intentions,Justin Bieber Featuring Quavo,2020,31,5,https://www.youtube.com/watch?v=3AyMjyHu1bA,947000000.0,Pop
 0905,Love On The Brain,Rihanna,2016,31,5,https://www.youtube.com/watch?v=QMP-o8WXSPM,448000000.0,Pop
@@ -939,7 +939,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0938,Wonderful,Ja Rule Featuring R. Kelly & Ashanti,2004,20,5,https://www.youtube.com/watch?v=QVXE1EzMrfw,340000000.0,Hip-Hop
 0939,Standing Next To You,Jung Kook,2023,19,5,https://www.youtube.com/watch?v=UNo0TG9LwwI,231000000.0,Pop
 0940,Gentleman,PSY,2013,15,5,https://www.youtube.com/watch?v=ASO_zypdnsQ,1746000000.0,Pop
-0941,No Brainer,DJ Khaled Featuring Justin Bieber| Chance The Rapper & Quavo,2018,15,5,https://www.youtube.com/watch?v=weeI1G46q0o,1928000000.0,Hip-Hop
+0941,No Brainer,DJ Khaled Featuring Justin Bieber| Chance The Rapper & Quavo,2018,15,5,https://www.youtube.com/watch?v=kxloC1MKTpg,1928000000.0,Hip-Hop
 0942,Stupid Love,Lady Gaga,2020,10,5,https://www.youtube.com/watch?v=5L6xyaeiV58,169000000.0,Pop
 0943,3D,Jung Kook & Jack Harlow,2023,9,5,https://www.youtube.com/watch?v=mHNCM-YALSA,287000000.0,Pop
 0944,I'm Yours,Jason Mraz,2008,76,6,https://www.youtube.com/watch?v=EkHTsc9PU2A,925000000.0,Pop
@@ -954,7 +954,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0953,Body Like A Back Road,Sam Hunt,2017,41,6,https://www.youtube.com/watch?v=Mdh2p03cRfw,314000000.0,Pop
 0954,Home,Phillip Phillips,2012,40,6,https://www.youtube.com/watch?v=oozQ4yV__Vw,175000000.0,Pop
 0955,Treat You Better,Shawn Mendes,2016,39,6,https://www.youtube.com/watch?v=lY2yjAdbvdQ,2749000000.0,Pop
-0956,Team,Lorde,2013,38,6,https://www.youtube.com/watch?v=nlcIKh6sBtc,1009000000.0,Pop
+0956,Team,Lorde,2013,38,6,https://www.youtube.com/watch?v=f2JuxM-snGc,1009000000.0,Pop
 0957,Going Bad,Meek Mill Featuring Drake,2018,37,6,https://www.youtube.com/watch?v=S1gp0m4B5p8,198000000.0,Hip-Hop
 0958,Never Be The Same,Camila Cabello,2017,37,6,https://www.youtube.com/watch?v=Ph54wQG8ynk,321000000.0,Pop
 0959,Dance The Night,Dua Lipa,2023,35,6,https://www.youtube.com/watch?v=OiC1rgCPmUQ,231000000.0,Pop
@@ -970,7 +970,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0969,Roses,The Chainsmokers Featuring Rozes,2015,31,6,https://www.youtube.com/watch?v=FyASdjZE0R0,335000000.0,Pop
 0970,I Ain't Worried,OneRepublic,2022,30,6,https://www.youtube.com/watch?v=mNEUkkoUoIA,487000000.0,Pop
 0971,As Long As You Love Me,Justin Bieber Featuring Big Sean,2012,29,6,https://www.youtube.com/watch?v=R4em3LKQCAQ,533000000.0,Pop
-0972,Cooler Than Me,Mike Posner,2010,29,6,https://www.youtube.com/watch?v=foE1mO2yM04,1798000000.0,Pop
+0972,Cooler Than Me,Mike Posner,2010,29,6,https://www.youtube.com/watch?v=mqWq_48LxWQ,1798000000.0,Pop
 0973,Domino,Jessie J,2011,29,6,https://www.youtube.com/watch?v=UJtB55MaoD0,382000000.0,Pop
 0974,Lemonade,Internet Money & Gunna Featuring Don Toliver & NAV,2020,29,6,https://www.youtube.com/watch?v=0opZqh_TprM,234000000.0,Hip-Hop
 0975,Astronaut In The Ocean,Masked Wolf,2021,28,6,https://www.youtube.com/watch?v=MEg-oqI9qmw,449000000.0,Hip-Hop
@@ -992,7 +992,7 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 0991,Maps,Maroon 5,2014,22,6,https://www.youtube.com/watch?v=NmugSMBh_iI,538000000.0,Pop
 0992,Red,Taylor Swift,2012,22,6,https://www.youtube.com/watch?v=Zlot0i3Zykw,259000000.0,Pop
 0993,Started From The Bottom,Drake,2013,22,6,https://www.youtube.com/watch?v=RubBzkZzpUA,532000000.0,Hip-Hop
-0994,MotorSport,Migos| Nicki Minaj & Cardi B,2017,21,6,https://www.youtube.com/watch?v=PEGccV-NOm8,1206000000.0,Hip-Hop
+0994,MotorSport,Migos| Nicki Minaj & Cardi B,2017,21,6,https://www.youtube.com/watch?v=9v_rtaye2yY,1206000000.0,Hip-Hop
 0995,Shake That,Eminem Featuring Nate Dogg,2005,21,6,https://www.youtube.com/watch?v=WrjwGPb0Hvw,250000000.0,Hip-Hop
 0996,Back To December,Taylor Swift,2010,20,6,https://www.youtube.com/watch?v=QUwxKWT6m7U,390000000.0,Pop
 0997,Beautiful,Snoop Dogg Featuring Pharrell & Uncle Charlie Wilson,2003,20,6,https://www.youtube.com/watch?v=_FE194VN6c4,294000000.0,Hip-Hop
@@ -1050,7 +1050,6 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1049,Hit the Road Jack (Remastered),Ray Charles,2011,999,999,https://www.youtube.com/watch?v=uSiHqxgE2d0,65000000.0,R&B
 1050,Muskurane - Romantic,"Jeet Gannguli, Arijit Singh, Rashmi Virag",2014,999,999,https://www.youtube.com/watch?v=HQ4Ox7mLqds,66000000.0,Hindi
 1051,Senorita,"Farhan Akhtar, Hrithik Roshan, Abhay Deol, Maria Del Mar Fernandez",2011,999,999,https://www.youtube.com/watch?v=yDv0WSgXJVg,145000000.0,Hindi
-1052,"Another Brick In The Wall, Pt. 2 - 2011 Remastered Version",Pink Floyd,1979,999,999,https://www.youtube.com/watch?v=krYK1jWz0Lo,69000000.0,Rock
 1053,Stairway to Heaven - Remaster,Led Zeppelin,1971,999,999,https://www.youtube.com/watch?v=QkF3oxziUI4,160000000.0,Rock
 1054,Gulabi,"Sachin-Jigar, Jigar Saraiya, Priya Saraiya, Jaideep Sahni",2013,999,999,https://www.youtube.com/watch?v=E4ZJxhyAaH8,73000000.0,Hindi
 1055,"Pani Da Rang Male (From ""Vicky Donor"")",Ayushmann Khurrana,2012,999,999,https://www.youtube.com/watch?v=2kgEc6oH9J0,98000000.0,Hindi
@@ -1082,7 +1081,6 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1081,Mr. Blue Sky,Electric Light Orchestra,1977,999,999,https://www.youtube.com/watch?v=wuJIqmha2Hk,167000000.0,Rock
 1082,Ik Vaari Aa,"Pritam, Arijit Singh, Amitabh Bhattacharya",2017,999,999,https://www.youtube.com/watch?v=zXLgYBSdv74,171000000.0,Hindi
 1083,September,"Earth, Wind & Fire",2018,999,999,https://www.youtube.com/watch?v=3cKtSlsYVEU,180000000.0,R&B
-1084,House of the Rising Sun,The Animals,1987,999,999,https://www.youtube.com/watch?v=N4bFqW_eu2I,184000000.0,Rock
 1085,(I Can't Get No) Satisfaction - Mono,The Rolling Stones,1965,999,999,https://www.youtube.com/watch?v=nrIPxlFzDi0,189000000.0,Rock
 1086,Jhalla Wallah,"Amit Trivedi, Shreya Ghoshal, Kausar Munir",2012,999,999,https://www.youtube.com/watch?v=fqjXS7X9_5s,193000000.0,Hindi
 1087,Dream On,Aerosmith,1973,999,999,https://www.youtube.com/watch?v=89dGC8de0CA,194000000.0,Rock
@@ -1096,12 +1094,11 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1095,Subhanallah,"Pritam, Sreeram, Shilpa Rao",2013,999,999,https://www.youtube.com/watch?v=QYO6AlxiRE4,243000000.0,Hindi
 1096,Tu Meri,"Vishal-Shekhar, Vishal Dadlani",2014,999,999,https://www.youtube.com/watch?v=YAOIbHBEvi0,246000000.0,Hindi
 1097,Saans,"A.R. Rahman, Shreya Ghoshal, Mohit Chauhan, Gulzar",2012,999,999,https://www.youtube.com/watch?v=VAt6TO2gdko,246000000.0,Hindi
-1098,"I'll Be Missing You (feat. Faith Evans, 112)","Diddy, Faith Evans, 112",2004,999,999,https://www.youtube.com/watch?v=pNPf-aP-bsA,248000000.0,Hip-Hop
 1099,Whole Lotta Love - 1990 Remaster,Led Zeppelin,1969,999,999,https://www.youtube.com/watch?v=HQmmM_qwG4k,251000000.0,Rock
 1100,Kashmir Main Tu Kanyakumari,"Vishal-Shekhar, Sunidhi Chauhan, Arijit Singh, Neeti Mohan",2013,999,999,https://www.youtube.com/watch?v=dodDteh-m3Q,260000000.0,Hindi
 1101,All Along the Watchtower,Jimi Hendrix,1968,999,999,https://www.youtube.com/watch?v=TLV4_xaYynY,265000000.0,Rock
 1102,"Tum Hi Ho Bandhu (From ""Cocktail"")","Neeraj Shridhar, Kavita Seth, Pritam",2012,999,999,https://www.youtube.com/watch?v=o1RducJbUdc,271000000.0,Hindi
-1103,"Daaru Desi (From ""Cocktail"")","Benny Dayal, Shalmali Kholgade, Pritam",2012,999,999,https://www.youtube.com/watch?v=o1RducJbUdc,271000000.0,Hindi
+1103,"Daaru Desi (From ""Cocktail"")","Benny Dayal, Shalmali Kholgade, Pritam",2012,999,999,https://www.youtube.com/watch?v=3nA1hmKCRpE,271000000.0,Hindi
 1104,Jumme Ki Raat,"Mika Singh, Palak Muchhal, Himesh Reshammiya, Kumaar, Shabbir Ahmed",2014,999,999,https://www.youtube.com/watch?v=dv_Qjzca56k,272000000.0,Hindi
 1105,Jailhouse Rock,Elvis Presley,1958,999,999,https://www.youtube.com/watch?v=gj0Rz-uP4Mk,277000000.0,Rock
 1106,House Of The Rising Sun,The Animals,1964,999,999,https://www.youtube.com/watch?v=4-43lLKaqBQ,277000000.0,Rock
@@ -1119,7 +1116,6 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1118,Tu Jaane Na,"Pritam, Atif Aslam",2009,999,999,https://www.youtube.com/watch?v=P8PWN1OmZOA,341000000.0,Hindi
 1119,"High Rated Gabru (From ""Nawabzaade"")",Guru Randhawa,2018,999,999,https://www.youtube.com/watch?v=DxCfhmYe-Cw,352000000.0,Hindi
 1120,"London Thumakda (From ""Queen"")","Labh Janjua, Sonu Kakkar, Neha Kakkar",2018,999,999,https://www.youtube.com/watch?v=udra3Mfw2oo,356000000.0,Hindi
-1121,One Dance,"Drake, Wizkid, Kyla",2016,999,999,https://www.youtube.com/watch?v=ki0Ocze98U8,361000000.0,Hip-Hop
 1122,Tere Sang Yaara,"Atif Aslam, Manoj Muntashir",2016,999,999,https://www.youtube.com/watch?v=gIOea2pgfIo,363000000.0,Hindi
 1123,Samjhawan,"Jawad Ahmad, Shaarib Toshi, Arijit Singh, Shreya Ghoshal",2014,999,999,https://www.youtube.com/watch?v=H2f7MZaw3Yo,366000000.0,Hindi
 1124,"Lat Lag Gayee (From ""Race 2"")","Benny Dayal, Shalmali Kholgade",2012,999,999,https://www.youtube.com/watch?v=KxCjVIFxZNo,370000000.0,Hindi
@@ -1132,7 +1128,6 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1131,Don't Stop Believin',Journey,1981,999,999,https://www.youtube.com/watch?v=VcjzHMhBtf0,416000000.0,Rock
 1132,Highway to Hell,AC/DC,1979,999,999,https://www.youtube.com/watch?v=l482T0yNkeo,424000000.0,Rock
 1133,Hey Jude,The Beatles,2006,999,999,https://www.youtube.com/watch?v=A_MjCqQoLLA,434000000.0,Rock
-1134,Hey Jude - Remastered 2015,The Beatles,2000,999,999,https://www.youtube.com/watch?v=A_MjCqQoLLA,434000000.0,Rock
 1135,The Night We Met,Lord Huron,2015,999,999,https://www.youtube.com/watch?v=KtlgYxa6BMU,442000000.0,Pop
 1136,Balam Pichkari,"Pritam, Vishal Dadlani, Shalmali Kholgade",2013,999,999,https://www.youtube.com/watch?v=0WtRNGubWGA,463000000.0,Hindi
 1137,"Tum Hi Ho (From ""Aashiqui 2"")",Arijit Singh,2019,999,999,https://www.youtube.com/watch?v=Umqb9KENgmk,466000000.0,Hindi
@@ -1148,10 +1143,8 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1147,"Kaun Tujhe (From ""M.S.Dhoni - The Untold Story"")",Palak Muchhal,2016,999,999,https://www.youtube.com/watch?v=atVof3pjT-I,519000000.0,Hindi
 1148,Nashe Si Chadh Gayi,"Arijit Singh, Caralisa Monteiro",2019,999,999,https://www.youtube.com/watch?v=HoCwa6gnmM0,530000000.0,Hindi
 1149,"Tera Hone Laga Hoon (From ""Ajab Prem Ki Ghazab Kahani"")","Atif Aslam, Alisha Chinai",2014,999,999,https://www.youtube.com/watch?v=rTuxUAuJRyY,530000000.0,Hindi
-1150,Nothing Compares 2 U,Sinéad O'Connor,1990,999,999,https://www.youtube.com/watch?v=0-EF60neguk,540000000.0,Rock
 1151,All Star,Smash Mouth,1999,999,999,https://www.youtube.com/watch?v=L_jWHffIx5E,542000000.0,Pop
 1152,Have You Ever Seen The Rain,Creedence Clearwater Revival,1970,999,999,https://www.youtube.com/watch?v=u1V8YRJnr4Q,552000000.0,Rock
-1153,Seven (feat. Latto) (Explicit Ver.),"Jung Kook, Latto",2023,999,999,https://www.youtube.com/watch?v=QU9c0053UAU,566000000.0,Pop
 1154,Stand By Me,Ben E. King,1962,999,999,https://www.youtube.com/watch?v=hwZNL7QVJjE,575000000.0,R&B
 1155,"Paint It, Black",The Rolling Stones,1966,999,999,https://www.youtube.com/watch?v=O4irXQhgMqg,594000000.0,Rock
 1156,"All The Stars (with SZA) - From ""Black Panther: The Album""","Kendrick Lamar, SZA",2018,999,999,https://www.youtube.com/watch?v=JQbjS0_ZfJ0,608000000.0,Hip-Hop
@@ -1176,13 +1169,11 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1175,goosebumps,Travis Scott,2016,999,999,https://www.youtube.com/watch?v=Dst9gZkq1a8,1104000000.0,Hip-Hop
 1176,Another Love,Tom Odell,2013,999,999,https://www.youtube.com/watch?v=MwpMEbgC7DA,1113000000.0,Pop
 1177,Kala Chashma,"Prem & Hardeep, Amar Arshi, Badshah, Neha Kakkar, Indeep Bakshi, Amrik Singh",2016,999,999,https://www.youtube.com/watch?v=k4yXQkG2s1E,1123000000.0,Hindi
-1178,Can't Hold Us (feat. Ray Dalton),"Macklemore, Ryan Lewis, Macklemore & Ryan Lewis, Ray Dalton",2012,999,999,https://www.youtube.com/watch?v=2zNSgSzhBfM,1149000000.0,Hip-Hop
 1179,Abhi Toh Party Shuru Hui Hai,"Badshah, Aastha Gill",2014,999,999,https://www.youtube.com/watch?v=8LZgzAZ2lpQ,1161000000.0,Hindi
 1180,Back In Black,AC/DC,1980,999,999,https://www.youtube.com/watch?v=pAgnJDJN4VA,1164000000.0,Rock
 1181,Phir Bhi Tumko Chaahunga,"Mithoon, Manoj Muntashir, Arijit Singh, Shashaa Tirupati",2017,999,999,https://www.youtube.com/watch?v=_iktURk0X-A,1178000000.0,Hindi
 1182,Don't Speak,No Doubt,1995,999,999,https://www.youtube.com/watch?v=TR3Vdo5etCQ,1212000000.0,Rock
 1183,Yellow,Coldplay,2000,999,999,https://www.youtube.com/watch?v=yKNxeF4KMsY,1248000000.0,Rock
-1184,rockstar,"Post Malone, 21 Savage",2017,999,999,https://www.youtube.com/watch?v=UceaB4D0jpo,1289000000.0,Hip-Hop
 1185,Californication,Red Hot Chili Peppers,1999,999,999,https://www.youtube.com/watch?v=YlUKcNNmywk,1309000000.0,Rock
 1186,Creep,Radiohead,1993,999,999,https://www.youtube.com/watch?v=XFkzRNyygfk,1310000000.0,Rock
 1187,The Scientist,Coldplay,2002,999,999,https://www.youtube.com/watch?v=RB-RcX5DS5A,1313000000.0,Rock
@@ -1193,16 +1184,10 @@ ID,Song,Artist,Year,Weeks_in_Charts,Rank,YouTube_Link,ViewCount,Genre
 1192,Thunderstruck,AC/DC,1990,999,999,https://www.youtube.com/watch?v=v2AC41dglnM,1640000000.0,Rock
 1193,Zombie,The Cranberries,1994,999,999,https://www.youtube.com/watch?v=6Ejga4kJUts,1755000000.0,Rock
 1194,Say You Won't Let Go,James Arthur,2016,999,999,https://www.youtube.com/watch?v=0yW7w8F2TVA,1801000000.0,Pop
-1195,Let Me Love You,"DJ Snake, Justin Bieber",2016,999,999,https://www.youtube.com/watch?v=euCqAq6BRa4,1817000000.0,Pop
 1196,Do I Wanna Know?,Arctic Monkeys,2013,999,999,https://www.youtube.com/watch?v=bpOSxM0rNPM,1820000000.0,Rock
-1197,Unforgettable,"French Montana, Swae Lee",2017,999,999,https://www.youtube.com/watch?v=CTFtOOh47oo,1871000000.0,Hip-Hop
-1198,Señorita,"Shawn Mendes, Camila Cabello",2019,999,999,https://www.youtube.com/watch?v=Pkh8UtuejGw,1882000000.0,Pop
-1199,Gangsta's Paradise,"Coolio, L.V.",1995,999,999,https://www.youtube.com/watch?v=fPO76Jlnz6c,1884000000.0,Hip-Hop
 1200,Bohemian Rhapsody - Remastered 2011,Queen,1975,999,999,https://www.youtube.com/watch?v=fJ9rUzIMcZQ,1993000000.0,Rock
 1201,What's Up?,4 Non Blondes,1992,999,999,https://www.youtube.com/watch?v=6NXnxTNIWkc,2030000000.0,Rock
 1202,Smells Like Teen Spirit,Nirvana,1991,999,999,https://www.youtube.com/watch?v=hTWKbfoikeg,2083000000.0,Rock
 1203,lovely (with Khalid),"Billie Eilish, Khalid",2018,999,999,https://www.youtube.com/watch?v=V1Pl8CzNzCw,2309000000.0,Pop
 1204,November Rain,Guns N' Roses,1991,999,999,https://www.youtube.com/watch?v=8SbUC-UaAxE,2358000000.0,Rock
 1205,Numb,Linkin Park,2003,999,999,https://www.youtube.com/watch?v=kXYiU_JCYtU,2592000000.0,Rock
-1206,Starboy,"The Weeknd, Daft Punk",2016,999,999,https://www.youtube.com/watch?v=34Na4j8AVgA,2670000000.0,Pop
-1207,Closer,"The Chainsmokers, Halsey",2016,999,999,https://www.youtube.com/watch?v=PT2_F-1esPk,3319000000.0,Pop
